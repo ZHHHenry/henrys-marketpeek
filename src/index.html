@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="shimo">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Henry's MarketPeek</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="updown-cn">
+  <div id="shell" class="shell">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <button id="btn-instruments" class="icon-btn" title="选择品种" data-i18n-title="selectInstruments">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect>
+            <rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect>
+            <rect x="3.5" y="13.5" width="7" height="7" rx="2"></rect>
+            <rect x="13.5" y="13.5" width="7" height="7" rx="2"></rect>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar-bottom">
+        <button id="btn-pin" class="icon-btn" title="窗口置顶" data-i18n-title="pinWindow">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 19V5"></path>
+            <path d="M5.5 11.5 12 5l6.5 6.5"></path>
+          </svg>
+        </button>
+        <button id="btn-settings" class="icon-btn" title="设置" data-i18n-title="settings">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <line x1="4" y1="7" x2="20" y2="7"></line>
+            <circle cx="9.5" cy="7" r="2.1" fill="currentColor" stroke="none"></circle>
+            <line x1="4" y1="12" x2="20" y2="12"></line>
+            <circle cx="15" cy="12" r="2.1" fill="currentColor" stroke="none"></circle>
+            <line x1="4" y1="17" x2="20" y2="17"></line>
+            <circle cx="8" cy="17" r="2.1" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main" data-tauri-drag-region>
+      <section id="view-cards" class="view">
+        <div id="card-grid" class="card-grid"></div>
+      </section>
+
+      <section id="view-instruments" class="panel hidden" data-tauri-drag-region>
+        <header class="panel-head" data-tauri-drag-region>
+          <h2 data-i18n="panelInstruments">选择品种</h2>
+          <span class="hint" data-i18n="maxHint">最多显示 4 张</span>
+        </header>
+        <div id="instrument-list" class="panel-list" data-tauri-drag-region></div>
+      </section>
+
+      <section id="view-settings" class="panel hidden" data-tauri-drag-region>
+        <header class="panel-head" data-tauri-drag-region>
+          <h2 data-i18n="panelSettings">设置</h2>
+        </header>
+        <div class="settings-body" data-tauri-drag-region>
+          <div class="setting-block">
+            <div class="setting-label" data-i18n="theme">主题配色</div>
+            <div id="theme-grid" class="theme-grid"></div>
+          </div>
+          <div class="setting-block">
+            <div class="setting-label" data-i18n="updown">涨跌颜色</div>
+            <div class="seg" id="seg-updown">
+              <button data-v="cn" data-i18n="redUp">红涨绿跌</button>
+              <button data-v="intl" data-i18n="greenUp">绿涨红跌</button>
+            </div>
+          </div>
+          <div class="setting-block">
+            <div class="setting-label" data-i18n="interval">刷新间隔</div>
+            <div class="seg" id="seg-interval">
+              <button data-v="5" data-i18n="sec5">5 秒</button>
+              <button data-v="10" data-i18n="sec10">10 秒</button>
+              <button data-v="30" data-i18n="sec30">30 秒</button>
+            </div>
+          </div>
+          <div class="setting-block">
+            <div class="setting-label" data-i18n="language">语言</div>
+            <div class="seg" id="seg-lang">
+              <button data-v="zh">中文</button>
+              <button data-v="en">English</button>
+            </div>
+          </div>
+          <div class="about" id="about">
+            <div id="about-title">Henry's MarketPeek</div>
+            <div data-i18n="disclaimer">行情数据来自腾讯 / 新浪公开接口，仅供参考，不构成投资建议。</div>
+          </div>
+        </div>
+        <div class="panel-actions" data-tauri-drag-region>
+          <button class="btn" id="btn-hide" data-i18n="hideToTray">隐藏到托盘</button>
+          <button class="btn" id="btn-quit" data-i18n="quit">退出</button>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div id="toast" class="toast"></div>
+  <script src="main.js"></script>
+</body>
+</html>

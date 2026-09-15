@@ -1,0 +1,28 @@
+[package]
+name = "marketpeek"
+version = "0.1.0"
+description = "Henry's MarketPeek - desktop market index widget"
+authors = ["ZHHHenry"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["gzip"] }
+encoding_rs = "0.8"
+chrono = "0.4"
+chrono-tz = "0.10"
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "s"
+codegen-units = 1
+
+[patch.crates-io]
+tauri-winres = { path = "vendor/tauri-winres" }
