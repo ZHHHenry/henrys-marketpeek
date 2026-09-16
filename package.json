@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "postbuild": "copy \"src-tauri\\target\\release\\marketpeek.exe\" \"MarketPeek.exe\" /Y",
+    "start": "MarketPeek.exe",
     "icon": "tauri icon"
   },
   "devDependencies": {

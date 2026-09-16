@@ -13,6 +13,7 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)";
 pub enum Source {
     Tencent,
     Sina,
+    Eastmoney,
 }
 
 pub struct Instrument {
@@ -37,6 +38,7 @@ pub const POOL: &[Instrument] = &[
     Instrument { id: "hsi", name: "恒生指数", name_en: "Hang Seng", short: "恒生", short_en: "HSI", category: "指数", category_en: "Indices", decimals: 2, code: "hkHSI", source: Source::Tencent },
     Instrument { id: "hstech", name: "恒生科技指数", name_en: "Hang Seng Tech", short: "恒科", short_en: "HSTECH", category: "指数", category_en: "Indices", decimals: 2, code: "hkHSTECH", source: Source::Tencent },
     Instrument { id: "nikkei", name: "日经225", name_en: "Nikkei 225", short: "日经", short_en: "Nikkei", category: "指数", category_en: "Indices", decimals: 2, code: "int_nikkei", source: Source::Sina },
+    Instrument { id: "kospi", name: "韩国KOSPI", name_en: "KOSPI", short: "韩综", short_en: "KOSPI", category: "指数", category_en: "Indices", decimals: 2, code: "100.KS11", source: Source::Eastmoney },
     Instrument { id: "nasdaq", name: "纳斯达克综合", name_en: "Nasdaq Composite", short: "纳指", short_en: "Nasdaq", category: "指数", category_en: "Indices", decimals: 2, code: "usIXIC", source: Source::Tencent },
     Instrument { id: "sp500", name: "标普500", name_en: "S&P 500", short: "标普", short_en: "S&P 500", category: "指数", category_en: "Indices", decimals: 2, code: "usINX", source: Source::Tencent },
     Instrument { id: "dji", name: "道琼斯工业", name_en: "Dow Jones", short: "道指", short_en: "Dow", category: "指数", category_en: "Indices", decimals: 2, code: "usDJI", source: Source::Tencent },
@@ -103,6 +105,7 @@ pub async fn fetch_quotes(ids: Vec<String>) -> Result<Vec<Quote>, String> {
     let selected: Vec<&Instrument> = POOL.iter().filter(|i| ids.iter().any(|id| id == i.id)).collect();
     let tencent: Vec<&str> = selected.iter().filter(|i| i.source == Source::Tencent).map(|i| i.code).collect();
     let sina: Vec<&str> = selected.iter().filter(|i| i.source == Source::Sina).map(|i| i.code).collect();
+    let eastmoney: Vec<&str> = selected.iter().filter(|i| i.source == Source::Eastmoney).map(|i| i.code).collect();
 
     if !tencent.is_empty() {
         let url = format!("http://qt.gtimg.cn/q={}", tencent.join(","));
@@ -135,6 +138,25 @@ pub async fn fetch_quotes(ids: Vec<String>) -> Result<Vec<Quote>, String> {
                 Err(e) => errors.push(format!("sina body: {e}")),
             },
             Err(e) => errors.push(format!("sina: {e}")),
+        }
+    }
+
+    if !eastmoney.is_empty() {
+        for code in eastmoney {
+            let url = format!(
+                "https://push2.eastmoney.com/api/qt/stock/get?secid={code}&fields=f43,f57,f58,f86,f169,f170&fltt=2&invt=2"
+            );
+            match client().get(&url).header("User-Agent", UA).send().await {
+                Ok(resp) => match resp.text().await {
+                    Ok(text) => {
+                        if let Some(quote) = parse_eastmoney(&text, code) {
+                            out.push(quote);
+                        }
+                    }
+                    Err(e) => errors.push(format!("eastmoney body: {e}")),
+                },
+                Err(e) => errors.push(format!("eastmoney: {e}")),
+            }
         }
     }
 
@@ -290,6 +312,23 @@ fn parse_int(val: &str) -> Option<(f64, f64, f64, i64)> {
         return None;
     }
     Some((price, f[2].parse::<f64>().unwrap_or(0.0), f[3].parse::<f64>().unwrap_or(0.0), 0))
+}
+
+fn parse_eastmoney(body: &str, code: &str) -> Option<Quote> {
+    let inst = pool_by_code(code)?;
+    let value: serde_json::Value = serde_json::from_str(body).ok()?;
+    let data = value.get("data")?;
+    if data.is_null() {
+        return None;
+    }
+    let price = data.get("f43")?.as_f64()?;
+    if price <= 0.0 {
+        return None;
+    }
+    let change = data.get("f169").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let pct = data.get("f170").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let ts = data.get("f86").and_then(|v| v.as_i64()).unwrap_or(0) * 1000;
+    Some(Quote { id: inst.id.into(), price, change, pct, ts })
 }
 
 fn looks_like_datetime(s: &str) -> bool {
