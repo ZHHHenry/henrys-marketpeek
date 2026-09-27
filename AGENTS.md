@@ -7,7 +7,7 @@
 - 常驻桌面的行情小挂件：**Tauri v2**（Rust 后端）+ **纯 HTML/CSS/JS 前端**（无打包器、无框架，`src/` 即产物，经 `frontendDist` 直接加载，前端经 `withGlobalTauri` 使用全局 API）。
 - 窗口：无边框圆角、透明、置顶可切换、常驻托盘、单实例；关闭 = 隐藏到托盘，不退出。
 - 行情源：腾讯（GBK）、新浪（GBK）、东方财富（KOSPI 用）；失败时对应卡片降级显示 `--`，不影响其他卡片。
-- 仓库：GitHub 私有 `ZHHHenry/henrys-marketpeek`。
+- 仓库：GitHub `ZHHHenry/henrys-marketpeek`。
 
 ## 目录结构
 

@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- **v0.1.1 已发布**（GitHub 私有仓库 `ZHHHenry/henrys-marketpeek`，Release 附 `MarketPeek.exe`，2026-09-27）。
+- **v0.1.1 已发布**（GitHub `ZHHHenry/henrys-marketpeek`，Release 附 `MarketPeek.exe`，2026-09-27）。
 - 此前：v0.1.0 已发布（2026-09-16），含 KOSPI 品种、侧栏可拖动、构建后自动拷贝根目录 exe（tag `v0.1.0` → `dbd5132`）。
 - 文档基线：`AGENTS.md` / `PROGRESS.md` 建立（2026-09-27）。
 
