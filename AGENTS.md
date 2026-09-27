@@ -42,9 +42,10 @@
 - 发版必须同步三处 version：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`；
 - 界面版本号通过 `app.getVersion()` 动态读取，无需硬编码；发版另需 git tag + GitHub Release（附根目录 exe）。
 
-### 5. 发版文档同步（README）
+### 5. 发版文档同步（README / CHANGELOG）
 
 - `README.md`：**功能特性与当前版本状态**必须随版本同步更新（中文与 English 两个区块都要查），禁止留旧版本描述。
+- `CHANGELOG.md`：每个版本补条目（最新最上），Release 说明与之一致。
 
 ## 环境与构建
 
