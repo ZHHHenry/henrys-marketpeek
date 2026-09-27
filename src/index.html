@@ -6,7 +6,7 @@
   <title>Henry's MarketPeek</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="updown-cn">
+  <body class="updown-cn" data-tauri-drag-region>
   <div id="shell" class="shell">
     <aside class="sidebar" data-tauri-drag-region>
       <div class="sidebar-top" data-tauri-drag-region>
@@ -40,8 +40,8 @@
     </aside>
 
     <main class="main" data-tauri-drag-region>
-      <section id="view-cards" class="view">
-        <div id="card-grid" class="card-grid"></div>
+      <section id="view-cards" class="view" data-tauri-drag-region>
+        <div id="card-grid" class="card-grid" data-tauri-drag-region></div>
       </section>
 
       <section id="view-instruments" class="panel hidden" data-tauri-drag-region>
@@ -49,14 +49,14 @@
           <h2 data-i18n="panelInstruments">选择品种</h2>
           <span class="hint" data-i18n="maxHint">最多显示 4 张</span>
         </header>
-        <div id="instrument-list" class="panel-list" data-tauri-drag-region></div>
+        <div id="instrument-list" class="panel-list"></div>
       </section>
 
       <section id="view-settings" class="panel hidden" data-tauri-drag-region>
         <header class="panel-head" data-tauri-drag-region>
           <h2 data-i18n="panelSettings">设置</h2>
         </header>
-        <div class="settings-body" data-tauri-drag-region>
+        <div class="settings-body">
           <div class="setting-block">
             <div class="setting-label" data-i18n="theme">主题配色</div>
             <div id="theme-grid" class="theme-grid"></div>

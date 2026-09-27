@@ -11,11 +11,11 @@
 ### 功能特性
 
 - 16 个可选品种：A 股指数（上证/深成/创业板/沪深300/科创50）、恒指与恒生科技、日经225 与韩国KOSPI、纳指/标普/道指、沪金主连、布伦特原油、伦敦金、美元人民币
-- 2×2 卡片区最多同显 4 张；「品种」面板切换，已选品种置顶并高亮，超出上限有提示
+- 2×2 卡片区最多同显 4 张；「品种」面板切换，已选品种置顶并高亮，可用行首拖拽条**拖动排序**（卡片顺序同步），超出上限有提示
 - 卡片显示：名称 + 点位 + 涨跌额 + 涨跌幅；红涨绿跌 / 绿涨红跌可切换
 - 10 套预设主题配色；刷新间隔 5/10/30 秒可选，休市自动降频，隐藏到托盘暂停刷新
 - 界面支持中文 / English 切换（设置面板内，托盘菜单同步）
-- 无边框圆角、整窗可拖动、位置记忆、置顶可切换、托盘常驻、单实例运行
+- 无边框圆角（浅色背景边缘干净、无黑边底衬）、**精细拖拽区域**（首页除卡片、品种页除行与滚动条、设置页除按钮，其余区域均可拖动窗口）、位置记忆、置顶可切换、托盘常驻、单实例运行
 
 > 行情数据来自腾讯行情与新浪财经公开接口，仅供参考，不构成投资建议。
 
@@ -47,7 +47,7 @@ npm run dev     # 开发模式
 npm run build   # 发布构建，产物在 src-tauri/target/release/
 ```
 
-构建完成后会自动复制一份到项目根目录：`MarketPeek.exe`（双击即可运行，可自由改名/移动）。
+构建完成后会自动把产物 **剪切**到项目根目录：`MarketPeek.exe`（双击即可运行，可自由改名/移动）。
 
 需要 Rust（MSVC 工具链）与 Node.js；国内网络建议为 cargo 配置 crates.io 镜像加速。
 
@@ -64,11 +64,11 @@ A tiny always-on-desktop market widget: neumorphic rounded cards that show quote
 ### Features
 
 - 16 instruments: Chinese A-share indices (SSE Composite, SZSE Component, ChiNext, CSI 300, STAR 50), Hang Seng and Hang Seng Tech, Nikkei 225 and KOSPI, Nasdaq Composite, S&P 500, Dow Jones, SHFE Gold, Brent Crude, London Gold Spot, USD/CNY
-- 2×2 card grid, up to 4 cards shown; instrument picker panel with selected items pinned on top, over-limit notice
+- 2×2 card grid, up to 4 cards shown; instrument picker panel with selected items pinned on top and **drag-to-reorder** (grip handle; card order follows), over-limit notice
 - Each card shows: name + price + change amount + change percent; CN (red-up) / international (green-up) color schemes
 - 10 preset themes; refresh interval 5/10/30 s, auto slow-down when markets are closed, paused while hidden in tray
 - UI language switch between 中文 / English (in Settings; tray menu follows)
-- Frameless rounded window, fully draggable, position memory, toggleable always-on-top, tray resident, single instance
+- Frameless rounded window (clean edges, no dark underlay on light backgrounds), **fine-grained drag regions** (home: except cards; picker: except rows and scrollbar; settings: except buttons), position memory, toggleable always-on-top, tray resident, single instance
 
 > Quotes come from Tencent and Sina public APIs. For reference only, not investment advice.
 
@@ -100,7 +100,7 @@ npm run dev     # development
 npm run build   # release build, output under src-tauri/target/release/
 ```
 
-The build also copies the executable to the project root as `MarketPeek.exe` (double-click to run; rename or move it freely).
+The build also **moves** the executable to the project root as `MarketPeek.exe` (double-click to run; rename or move it freely).
 
 Requires Rust (MSVC toolchain) and Node.js. A crates.io mirror is recommended on slow networks.
 

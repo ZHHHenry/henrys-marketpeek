@@ -1,12 +1,12 @@
 {
   "name": "henrys-marketpeek",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Henry's MarketPeek - desktop market index widget",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
-    "postbuild": "copy \"src-tauri\\target\\release\\marketpeek.exe\" \"MarketPeek.exe\" /Y",
+    "postbuild": "move /Y \"src-tauri\\target\\release\\marketpeek.exe\" \"MarketPeek.exe\"",
     "start": "MarketPeek.exe",
     "icon": "tauri icon"
   },

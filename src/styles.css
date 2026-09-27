@@ -37,7 +37,6 @@ body {
   display: flex;
   background: var(--bg);
   border-radius: 16px;
-  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.26);
   overflow: hidden;
 }
 
@@ -233,6 +232,7 @@ body {
   color: var(--tx);
   cursor: pointer;
   flex: 0 0 auto;
+  transition: transform 0.16s ease;
 }
 
 .panel-row:hover .row-name { color: var(--accent); }
@@ -243,6 +243,45 @@ body {
 }
 
 .panel-row .row-state { color: var(--accent); font-weight: 700; }
+
+.panel-row .row-name { flex: 1; }
+
+.drag-handle {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  color: var(--tx2);
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-handle::before {
+  content: "";
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  box-shadow: 0 3px 0 currentColor, 0 -3px 0 currentColor;
+}
+
+.drag-handle:active { cursor: grabbing; }
+
+.panel-row.dragging {
+  position: relative;
+  z-index: 5;
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+  box-shadow: 4px 4px 12px var(--shd), -4px -4px 12px var(--shl);
+  transition: none;
+}
+
+body.row-dragging,
+body.row-dragging * { cursor: grabbing !important; }
+
+.panel-row:not(.selected) .row-name { margin-left: 22px; }
 
 .settings-body {
   flex: 1;

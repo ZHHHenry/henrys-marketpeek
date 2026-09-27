@@ -36,6 +36,7 @@ const STR = {
     quit: '退出',
     disclaimer: '行情数据来自腾讯 / 新浪公开接口，仅供参考，不构成投资建议。',
     shownGroup: '已显示（点击移除）',
+    dragReorder: '拖动排序',
     toastMax: '最多显示 4 张，先关一张',
   },
   en: {
@@ -58,6 +59,7 @@ const STR = {
     quit: 'Quit',
     disclaimer: 'Quotes from Tencent / Sina public APIs. For reference only, not investment advice.',
     shownGroup: 'Shown (click to remove)',
+    dragReorder: 'Drag to reorder',
     toastMax: 'Up to 4 cards — remove one first',
   },
 };
@@ -72,6 +74,7 @@ let quotes = new Map();
 let paused = false;
 let timer = null;
 let pinned = true;
+let suppressRowClickUntil = 0;
 
 function loadState() {
   try {
@@ -181,7 +184,6 @@ function renderCards() {
     const q = quotes.get(id);
     const card = document.createElement('div');
     card.className = 'card';
-    card.setAttribute('data-tauri-drag-region', '');
 
     const name = document.createElement('div');
     name.className = 'name';
@@ -255,6 +257,7 @@ function groupLabel(text) {
 function panelRow(inst, selected) {
   const row = document.createElement('div');
   row.className = 'panel-row' + (selected ? ' selected' : '');
+  row.dataset.id = inst.id;
 
   const name = document.createElement('span');
   name.className = 'row-name';
@@ -264,8 +267,20 @@ function panelRow(inst, selected) {
   mark.className = 'row-state';
   mark.textContent = selected ? '✓' : '';
 
-  row.append(name, mark);
-  row.addEventListener('click', () => toggleInstrument(inst.id));
+  if (selected) {
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.title = t('dragReorder');
+    handle.addEventListener('mousedown', (e) => startRowReorder(e, row));
+    handle.addEventListener('click', (e) => e.stopPropagation());
+    row.append(handle, name, mark);
+  } else {
+    row.append(name, mark);
+  }
+  row.addEventListener('click', () => {
+    if (Date.now() < suppressRowClickUntil) return;
+    toggleInstrument(inst.id);
+  });
   return row;
 }
 
@@ -285,6 +300,99 @@ function toggleInstrument(id) {
   renderCards();
   renderInstrumentList();
   refresh();
+}
+
+function startRowReorder(e, row) {
+  if (e.button !== 0) return;
+  const id = row.dataset.id;
+  if (state.selected.indexOf(id) < 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const list = document.getElementById('instrument-list');
+  const rows = [...list.querySelectorAll('.panel-row.selected')];
+  const rowRect = row.getBoundingClientRect();
+  const origIndex = rows.indexOf(row);
+  const groupTop = rows[0].getBoundingClientRect().top;
+  const groupBottom = rows[rows.length - 1].getBoundingClientRect().bottom;
+  const others = rows.filter((r) => r !== row);
+  const midpoints = others.map((r) => {
+    const box = r.getBoundingClientRect();
+    return box.top + box.height / 2;
+  });
+  const pitch =
+    rows.length > 1
+      ? rows[1].getBoundingClientRect().top - rows[0].getBoundingClientRect().top
+      : rowRect.height + 7;
+  const startY = e.clientY;
+  const minDy = groupTop - rowRect.top;
+  const maxDy = groupBottom - rowRect.height - rowRect.top;
+
+  let dragged = false;
+  let lastTarget = origIndex;
+  row.classList.add('dragging');
+  document.body.classList.add('row-dragging');
+
+  const targetFor = (rawDy) => {
+    if (rawDy <= minDy) return 0;
+    if (rawDy >= maxDy) return others.length;
+    const center = rowRect.top + rawDy + rowRect.height / 2;
+    const up = rawDy < 0;
+    for (let i = 0; i < others.length; i++) {
+      if (up ? center <= midpoints[i] : center < midpoints[i]) return i;
+    }
+    return others.length;
+  };
+
+  const applyPreview = (target) => {
+    rows.forEach((r, i) => {
+      if (r === row) return;
+      let shift = 0;
+      if (target < origIndex && i >= target && i < origIndex) shift = pitch;
+      else if (target > origIndex && i > origIndex && i <= target) shift = -pitch;
+      r.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+  };
+
+  const onMove = (ev) => {
+    const rawDy = ev.clientY - startY;
+    if (Math.abs(rawDy) > 3) dragged = true;
+    const dy = Math.min(maxDy, Math.max(minDy, rawDy));
+    row.style.transform = `translateY(${Math.round(dy)}px)`;
+    const target = targetFor(rawDy);
+    if (target !== lastTarget) {
+      lastTarget = target;
+      applyPreview(target);
+    }
+  };
+
+  const onUp = (ev) => {
+    document.removeEventListener('mousemove', onMove, true);
+    document.removeEventListener('mouseup', onUp, true);
+    window.removeEventListener('blur', onUp);
+    row.style.transform = '';
+    row.classList.remove('dragging');
+    document.body.classList.remove('row-dragging');
+    if (typeof ev.clientY === 'number') {
+      lastTarget = targetFor(ev.clientY - startY);
+    }
+
+    const ordered = others.map((r) => r.dataset.id);
+    ordered.splice(lastTarget, 0, id);
+    if (dragged && ordered.join() !== state.selected.join()) {
+      state.selected = ordered;
+      saveState();
+      renderCards();
+    }
+    if (dragged) suppressRowClickUntil = Date.now() + 400;
+    const scrollTop = list.scrollTop;
+    renderInstrumentList();
+    list.scrollTop = scrollTop;
+  };
+
+  document.addEventListener('mousemove', onMove, true);
+  document.addEventListener('mouseup', onUp, true);
+  window.addEventListener('blur', onUp);
 }
 
 function renderThemeGrid() {
@@ -341,7 +449,25 @@ function renderSettingsState() {
   }
 }
 
+function isOverScrollbar(e, el) {
+  return e.clientX >= el.getBoundingClientRect().right - 8;
+}
+
 function bindEvents() {
+  const instrumentList = document.getElementById('instrument-list');
+  instrumentList.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('.panel-row') || isOverScrollbar(e, instrumentList)) return;
+    e.preventDefault();
+    appWindow.startDragging().catch(() => {});
+  });
+
+  const settingsBody = document.querySelector('.settings-body');
+  settingsBody.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button') || isOverScrollbar(e, settingsBody)) return;
+    e.preventDefault();
+    appWindow.startDragging().catch(() => {});
+  });
+
   document.getElementById('btn-instruments').addEventListener('click', () => {
     showView(currentView() === 'instruments' ? 'cards' : 'instruments');
   });
