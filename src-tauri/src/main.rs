@@ -19,6 +19,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             quotes::get_instruments,
             quotes::fetch_quotes,
+            quotes::fetch_custom_quotes,
             hide_window,
             quit_app,
             set_language

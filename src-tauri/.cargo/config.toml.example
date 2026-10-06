@@ -1,0 +1,8 @@
+# Cargo 源镜像模板（rsproxy，国内网络加速）。
+# 使用方法：将本文件复制为同目录下的 config.toml（该文件已被 .gitignore 排除，不会入库）。
+
+[source.crates-io]
+replace-with = "rsproxy-sparse"
+
+[source.rsproxy-sparse]
+registry = "sparse+https://rsproxy.cn/index/"

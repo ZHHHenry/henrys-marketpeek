@@ -46,7 +46,10 @@
 
       <section id="view-instruments" class="panel hidden" data-tauri-drag-region>
         <header class="panel-head" data-tauri-drag-region>
-          <h2 data-i18n="panelInstruments">选择品种</h2>
+          <div class="panel-title">
+            <h2 data-i18n="panelInstruments">选择品种</h2>
+            <button id="btn-add-instrument" class="add-btn" title="添加自选品种" data-i18n-title="addInstrument">+</button>
+          </div>
           <span class="hint" data-i18n="maxHint">最多显示 4 张</span>
         </header>
         <div id="instrument-list" class="panel-list"></div>
@@ -85,7 +88,7 @@
           </div>
           <div class="about" id="about">
             <div id="about-title">Henry's MarketPeek</div>
-            <div data-i18n="disclaimer">行情数据来自腾讯 / 新浪公开接口，仅供参考，不构成投资建议。</div>
+            <div data-i18n="disclaimer">行情数据来自腾讯 / 新浪 / 东方财富公开接口，仅供参考，不构成投资建议。</div>
           </div>
         </div>
         <div class="panel-actions" data-tauri-drag-region>
@@ -94,6 +97,29 @@
         </div>
       </section>
     </main>
+  </div>
+  <div id="add-dialog" class="dialog-backdrop hidden">
+    <div class="dialog">
+      <h3 data-i18n="addInstrument">添加自选品种</h3>
+      <label class="dialog-label"><span data-i18n="nameLabel">名称</span>
+        <input id="add-name" maxlength="24" autocomplete="off" />
+      </label>
+      <label class="dialog-label"><span data-i18n="codeLabel">接口代码</span>
+        <input id="add-code" maxlength="24" autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="dialog-label"><span data-i18n="sourceLabel">数据源</span>
+        <div class="seg" id="seg-source">
+          <button data-v="tencent" data-i18n="srcTencent">腾讯</button>
+          <button data-v="sina" data-i18n="srcSina">新浪</button>
+          <button data-v="eastmoney" data-i18n="srcEastmoney">东方财富</button>
+        </div>
+      </div>
+      <div id="add-error" class="dialog-error hidden"></div>
+      <div class="dialog-actions">
+        <button class="btn" id="btn-add-cancel" data-i18n="dialogCancel">取消</button>
+        <button class="btn" id="btn-add-confirm" data-i18n="dialogAdd">添加</button>
+      </div>
+    </div>
   </div>
   <div id="toast" class="toast"></div>
   <script src="main.js"></script>

@@ -1,7 +1,8 @@
 /node_modules
 /src-tauri/target
 /src-tauri/gen
-/src-tauri/.cargo
+/src-tauri/.cargo/*
+!/src-tauri/.cargo/config.toml.example
 /MarketPeek.exe
 *.log
 .DS_Store

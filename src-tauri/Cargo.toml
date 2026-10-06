@@ -1,6 +1,6 @@
 [package]
 name = "marketpeek"
-version = "0.1.1"
+version = "0.1.2"
 description = "Henry's MarketPeek - desktop market index widget"
 authors = ["ZHHHenry"]
 edition = "2021"

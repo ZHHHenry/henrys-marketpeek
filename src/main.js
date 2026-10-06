@@ -34,10 +34,25 @@ const STR = {
     language: '语言',
     hideToTray: '隐藏到托盘',
     quit: '退出',
-    disclaimer: '行情数据来自腾讯 / 新浪公开接口，仅供参考，不构成投资建议。',
+    disclaimer: '行情数据来自腾讯 / 新浪 / 东方财富公开接口，仅供参考，不构成投资建议。',
     shownGroup: '已显示（点击移除）',
     dragReorder: '拖动排序',
     toastMax: '最多显示 4 张，先关一张',
+    addInstrument: '添加自选品种',
+    nameLabel: '名称',
+    codeLabel: '接口代码',
+    sourceLabel: '数据源',
+    srcTencent: '腾讯',
+    srcSina: '新浪',
+    srcEastmoney: '东方财富',
+    dialogAdd: '添加',
+    dialogCancel: '取消',
+    addMissing: '请填写名称和代码',
+    addDup: '该代码已在列表中存在',
+    addNoQuote: '未获取到行情，请检查代码与来源',
+    addOk: '已添加自选品种',
+    removeInstrument: '删除自选',
+    swapFx: '交换货币对',
   },
   en: {
     selectInstruments: 'Select instruments',
@@ -57,16 +72,50 @@ const STR = {
     language: 'Language',
     hideToTray: 'Hide to tray',
     quit: 'Quit',
-    disclaimer: 'Quotes from Tencent / Sina public APIs. For reference only, not investment advice.',
+    disclaimer: 'Quotes from Tencent / Sina / Eastmoney public APIs. For reference only, not investment advice.',
     shownGroup: 'Shown (click to remove)',
     dragReorder: 'Drag to reorder',
     toastMax: 'Up to 4 cards — remove one first',
+    addInstrument: 'Add custom instrument',
+    nameLabel: 'Name',
+    codeLabel: 'Code',
+    sourceLabel: 'Source',
+    srcTencent: 'Tencent',
+    srcSina: 'Sina',
+    srcEastmoney: 'Eastmoney',
+    dialogAdd: 'Add',
+    dialogCancel: 'Cancel',
+    addMissing: 'Enter a name and code',
+    addDup: 'Code already exists',
+    addNoQuote: 'No quote returned — check code and source',
+    addOk: 'Custom instrument added',
+    removeInstrument: 'Remove',
+    swapFx: 'Swap base/quote currencies',
   },
 };
 
-const DEFAULTS = { selected: ['sse', 'gold', 'dji'], theme: 'shimo', updown: 'cn', interval: 10, lang: 'zh' };
+const CURRENCY_ZH = {
+  USD: '美元',
+  CNY: '人民币',
+  EUR: '欧元',
+  JPY: '日元',
+  HKD: '港币',
+  GBP: '英镑',
+  AUD: '澳元',
+  NZD: '新西兰元',
+  CAD: '加元',
+  CHF: '瑞士法郎',
+  SGD: '新加坡元',
+  KRW: '韩元',
+  THB: '泰铢',
+  TWD: '新台币',
+  MYR: '马来西亚林吉特',
+};
+
+const DEFAULTS = { selected: ['sse', 'gold', 'dji'], theme: 'shimo', updown: 'cn', interval: 10, lang: 'zh', custom: [], swapped: {} };
 const STORE_KEY = 'mp-settings-v1';
 
+let poolInstruments = [];
 let instruments = [];
 let byId = new Map();
 let state = loadState();
@@ -108,8 +157,8 @@ function instCategory(inst) {
 }
 
 async function init() {
-  instruments = await invoke('get_instruments');
-  byId = new Map(instruments.map((i) => [i.id, i]));
+  poolInstruments = await invoke('get_instruments');
+  rebuildInstruments();
 
   bindEvents();
   renderAll();
@@ -128,6 +177,24 @@ async function init() {
 
   await refresh();
   schedule(state.interval * 1000);
+}
+
+function rebuildInstruments() {
+  const customs = (state.custom || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    nameEn: c.name,
+    short: c.name,
+    shortEn: c.name,
+    category: '自选',
+    categoryEn: 'Custom',
+    decimals: c.decimals,
+    code: c.code,
+    source: c.source,
+    custom: true,
+  }));
+  instruments = [...customs, ...poolInstruments];
+  byId = new Map(instruments.map((i) => [i.id, i]));
 }
 
 function applyState() {
@@ -175,19 +242,87 @@ function fmtChange(value, decimals) {
   });
 }
 
+function isSwappable(inst) {
+  return /^wh[A-Za-z]{6}$/.test(inst.code || '');
+}
+
+function defaultSwapRequired(inst) {
+  const m = /^wh([A-Za-z]{3})([A-Za-z]{3})$/.exec(inst.code || '');
+  if (!m) return false;
+  const base = m[1].toUpperCase();
+  const quote = m[2].toUpperCase();
+  if (quote === 'USD') return true;
+  if (base === 'CNY') return true;
+  return false;
+}
+
+function isSwapped(inst) {
+  const explicit = state.swapped ? state.swapped[inst.id] : undefined;
+  if (typeof explicit === 'boolean') return explicit;
+  return defaultSwapRequired(inst);
+}
+
+function swapDisplayName(inst) {
+  const m = /^wh([A-Za-z]{3})([A-Za-z]{3})$/.exec(inst.code || '');
+  if (!m) return instName(inst);
+  const a = m[2].toUpperCase();
+  const b = m[1].toUpperCase();
+  const zhA = CURRENCY_ZH[a];
+  const zhB = CURRENCY_ZH[b];
+  if (state.lang === 'en' || !zhA || !zhB) return `${a}/${b}`;
+  return `${zhA}${zhB}`;
+}
+
+function displayInstName(inst) {
+  return isSwappable(inst) && isSwapped(inst) ? swapDisplayName(inst) : instName(inst);
+}
+
+function invertQuote(q) {
+  if (!q || q.price <= 0) return q;
+  const prev = q.price - q.change;
+  const price = 1 / q.price;
+  const change = prev > 0 ? price - 1 / prev : 0;
+  const pct = prev > 0 ? (change / (1 / prev)) * 100 : 0;
+  return { ...q, price, change, pct };
+}
+
+function toggleFxSwap(id) {
+  const inst = byId.get(id);
+  if (!inst) return;
+  state.swapped = state.swapped || {};
+  state.swapped[id] = !isSwapped(inst);
+  saveState();
+  renderCards();
+}
+
 function renderCards() {
   const grid = document.getElementById('card-grid');
   grid.innerHTML = '';
   for (const id of state.selected) {
     const inst = byId.get(id);
     if (!inst) continue;
-    const q = quotes.get(id);
+    const swapped = isSwapped(inst);
+    const raw = quotes.get(id);
+    const q = swapped ? invertQuote(raw) : raw;
     const card = document.createElement('div');
     card.className = 'card';
 
     const name = document.createElement('div');
     name.className = 'name';
-    name.textContent = instName(inst);
+    const nameText = document.createElement('span');
+    nameText.textContent = displayInstName(inst);
+    name.append(nameText);
+    if (isSwappable(inst)) {
+      const swapBtn = document.createElement('button');
+      swapBtn.className = 'fx-swap';
+      swapBtn.textContent = '⇄';
+      swapBtn.title = t('swapFx');
+      swapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFxSwap(inst.id);
+      });
+      name.append(swapBtn);
+    }
 
     const price = document.createElement('div');
     price.className = 'price';
@@ -261,7 +396,7 @@ function panelRow(inst, selected) {
 
   const name = document.createElement('span');
   name.className = 'row-name';
-  name.textContent = instName(inst);
+  name.textContent = displayInstName(inst);
 
   const mark = document.createElement('span');
   mark.className = 'row-state';
@@ -277,11 +412,99 @@ function panelRow(inst, selected) {
   } else {
     row.append(name, mark);
   }
+  if (inst.custom) {
+    const remove = document.createElement('span');
+    remove.className = 'row-remove';
+    remove.textContent = '×';
+    remove.title = t('removeInstrument');
+    remove.addEventListener('mousedown', (e) => e.stopPropagation());
+    remove.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeCustomInstrument(inst.id);
+    });
+    row.append(remove);
+  }
   row.addEventListener('click', () => {
     if (Date.now() < suppressRowClickUntil) return;
     toggleInstrument(inst.id);
   });
   return row;
+}
+
+let addSource = 'tencent';
+
+function openAddDialog() {
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-code').value = '';
+  document.getElementById('add-error').classList.add('hidden');
+  addSource = 'tencent';
+  for (const btn of document.querySelectorAll('#seg-source button')) {
+    btn.classList.toggle('on', btn.dataset.v === 'tencent');
+  }
+  document.getElementById('add-dialog').classList.remove('hidden');
+  document.getElementById('add-name').focus();
+}
+
+function closeAddDialog() {
+  document.getElementById('add-dialog').classList.add('hidden');
+}
+
+function showAddError(message) {
+  const el = document.getElementById('add-error');
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+async function submitAdd() {
+  if (document.getElementById('add-dialog').classList.contains('hidden')) return;
+  const name = document.getElementById('add-name').value.trim();
+  const code = document.getElementById('add-code').value.trim();
+  if (!name || !code) {
+    showAddError(t('addMissing'));
+    return;
+  }
+  const dup =
+    poolInstruments.some((i) => i.code === code) ||
+    (state.custom || []).some((c) => c.code === code);
+  if (dup) {
+    showAddError(t('addDup'));
+    return;
+  }
+  const id = 'c_' + code;
+  const confirmBtn = document.getElementById('btn-add-confirm');
+  confirmBtn.disabled = true;
+  try {
+    const list = await invoke('fetch_custom_quotes', {
+      items: [{ id, code, source: addSource }],
+    });
+    if (!list.length) {
+      showAddError(t('addNoQuote'));
+      return;
+    }
+    const decimals = code.toLowerCase().startsWith('wh') ? 4 : 2;
+    state.custom = state.custom || [];
+    state.custom.push({ id, name, code, source: addSource, decimals });
+    saveState();
+    rebuildInstruments();
+    renderInstrumentList();
+    closeAddDialog();
+    toast(t('addOk'));
+  } catch (e) {
+    console.warn('custom fetch failed', e);
+    showAddError(t('addNoQuote'));
+  } finally {
+    confirmBtn.disabled = false;
+  }
+}
+
+function removeCustomInstrument(id) {
+  state.custom = (state.custom || []).filter((c) => c.id !== id);
+  state.selected = state.selected.filter((s) => s !== id);
+  if (state.swapped) delete state.swapped[id];
+  quotes.delete(id);
+  saveState();
+  rebuildInstruments();
+  renderAll();
 }
 
 function toggleInstrument(id) {
@@ -454,6 +677,26 @@ function isOverScrollbar(e, el) {
 }
 
 function bindEvents() {
+  document.getElementById('btn-add-instrument').addEventListener('click', openAddDialog);
+  document.getElementById('btn-add-cancel').addEventListener('click', closeAddDialog);
+  document.getElementById('btn-add-confirm').addEventListener('click', submitAdd);
+  const addDialog = document.getElementById('add-dialog');
+  addDialog.addEventListener('mousedown', (e) => {
+    if (e.target === addDialog) closeAddDialog();
+  });
+  addDialog.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAddDialog();
+    if (e.key === 'Enter') submitAdd();
+  });
+  for (const btn of document.querySelectorAll('#seg-source button')) {
+    btn.addEventListener('click', () => {
+      addSource = btn.dataset.v;
+      for (const b of document.querySelectorAll('#seg-source button')) {
+        b.classList.toggle('on', b === btn);
+      }
+    });
+  }
+
   const instrumentList = document.getElementById('instrument-list');
   instrumentList.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || e.target.closest('.panel-row') || isOverScrollbar(e, instrumentList)) return;
@@ -533,7 +776,19 @@ async function refresh() {
     return;
   }
   try {
-    const list = await invoke('fetch_quotes', { ids: state.selected });
+    const poolIds = [];
+    const customs = [];
+    for (const id of state.selected) {
+      const inst = byId.get(id);
+      if (!inst) continue;
+      if (inst.custom) customs.push({ id: inst.id, code: inst.code, source: inst.source });
+      else poolIds.push(id);
+    }
+    const list = poolIds.length ? await invoke('fetch_quotes', { ids: poolIds }) : [];
+    if (customs.length) {
+      const customQuotes = await invoke('fetch_custom_quotes', { items: customs });
+      list.push(...customQuotes);
+    }
     for (const quote of list) quotes.set(quote.id, quote);
   } catch (e) {
     console.warn('fetch failed', e);
