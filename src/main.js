@@ -53,6 +53,11 @@ const STR = {
     addOk: '已添加自选品种',
     removeInstrument: '删除自选',
     swapFx: '交换货币对',
+    quoteStale: '行情超过 3 分钟未更新',
+    quoteSourceUnavailable: '数据源暂时不可用',
+    quoteInvalidResponse: '数据源未返回有效行情',
+    quoteNoData: '暂无可用数据',
+    quoteLastUpdated: '上次更新',
   },
   en: {
     selectInstruments: 'Select instruments',
@@ -91,6 +96,11 @@ const STR = {
     addOk: 'Custom instrument added',
     removeInstrument: 'Remove',
     swapFx: 'Swap base/quote currencies',
+    quoteStale: 'Quote has not updated for over 3 minutes',
+    quoteSourceUnavailable: 'Quote source is temporarily unavailable',
+    quoteInvalidResponse: 'Quote source returned no valid data',
+    quoteNoData: 'No quote is available',
+    quoteLastUpdated: 'Last updated',
   },
 };
 
@@ -378,12 +388,19 @@ function renderCards() {
     const swapped = isSwapped(inst);
     const raw = quotes.get(id);
     const q = swapped ? invertQuote(raw) : raw;
+    const status = quoteStatus(id, raw);
     const card = document.createElement('div');
     card.className = 'card';
+    if (status.kind === 'stale') card.classList.add('data-stale');
+    if (status.kind === 'error') card.classList.add('data-error');
+    if (status.kind !== 'fresh') {
+      card.title = quoteStatusTitle(status, raw);
+    }
 
     const name = document.createElement('div');
     name.className = 'name';
     const nameText = document.createElement('span');
+    nameText.className = 'name-text';
     nameText.textContent = displayInstName(inst);
     name.append(nameText);
     if (isSwappable(inst)) {
@@ -396,6 +413,13 @@ function renderCards() {
         toggleFxSwap(inst.id);
       });
       name.append(swapBtn);
+    }
+    if (status.kind !== 'fresh') {
+      const statusDot = document.createElement('span');
+      statusDot.className = `card-status ${status.kind}`;
+      statusDot.setAttribute('role', 'img');
+      statusDot.setAttribute('aria-label', quoteStatusTitle(status, raw));
+      name.append(statusDot);
     }
 
     const price = document.createElement('div');
@@ -432,6 +456,51 @@ function renderCards() {
     placeholder.addEventListener('click', () => showView('instruments'));
     grid.append(placeholder);
   }
+}
+
+function quoteStatus(id, quote, now = Date.now(), failures = quoteFailures) {
+  const failure = failures.get(id);
+  if (failure) return { kind: 'error', failure };
+  if (quote && !isQuoteFresh(quote, now)) return { kind: 'stale', failure: null };
+  return { kind: 'fresh', failure: null };
+}
+
+function quoteStatusTitle(status, quote) {
+  const parts = [];
+  if (status.kind === 'error') {
+    parts.push(isSourceUnavailable(status.failure) ? t('quoteSourceUnavailable') : t('quoteInvalidResponse'));
+  } else if (status.kind === 'stale') {
+    parts.push(t('quoteStale'));
+  }
+  const timestamp = quoteTimestamp(quote);
+  if (timestamp) {
+    const locale = state.lang === 'en' ? 'en-US' : 'zh-CN';
+    const formatted = new Date(timestamp).toLocaleString(locale, {
+      month: 'numeric',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    parts.push(`${t('quoteLastUpdated')} ${formatted}`);
+  } else if (status.kind === 'error') {
+    parts.push(t('quoteNoData'));
+  }
+  return parts.join(' · ');
+}
+
+function isSourceUnavailable(failure) {
+  const message = String(failure?.message || '').toLowerCase();
+  return message.startsWith('request failed:') || message.startsWith('http ');
+}
+
+function quoteTimestamp(quote, now = Date.now()) {
+  if (!quote) return 0;
+  const sourceTs = Number(quote.ts);
+  if (Number.isFinite(sourceTs) && sourceTs > 0 && sourceTs <= now + MAX_FUTURE_SKEW_MS) {
+    return sourceTs;
+  }
+  const receivedAt = Number(quote.receivedAt);
+  return Number.isFinite(receivedAt) && receivedAt > 0 ? receivedAt : 0;
 }
 
 function renderInstrumentList() {
@@ -929,12 +998,7 @@ async function tick() {
 }
 
 function isQuoteFresh(quote, now = Date.now()) {
-  if (!quote) return false;
-  const sourceTs = Number(quote.ts);
-  const receivedAt = Number(quote.receivedAt);
-  const basis = Number.isFinite(sourceTs) && sourceTs > 0 && sourceTs <= now + MAX_FUTURE_SKEW_MS
-    ? sourceTs
-    : receivedAt;
+  const basis = quoteTimestamp(quote, now);
   return Number.isFinite(basis) && basis > 0 && now - basis >= 0 && now - basis < STALE_AFTER_MS;
 }
 
@@ -974,6 +1038,9 @@ if (window.__MARKETPEEK_TEST__) {
     isValidCustomCode,
     normalizeCustomInstrument,
     normalizeState,
+    quoteStatus,
+    quoteStatusTitle,
+    quoteTimestamp,
   };
 }
 

@@ -26,6 +26,9 @@ const {
   isValidCustomCode,
   normalizeCustomInstrument,
   normalizeState,
+  quoteStatus,
+  quoteStatusTitle,
+  quoteTimestamp,
 } = window.__MARKETPEEK_TEST_API;
 
 test('normalizeState migrates malformed persisted settings to safe values', () => {
@@ -73,6 +76,20 @@ test('freshness uses source time when present and receipt time as a safe fallbac
   assert.equal(isQuoteFresh({ ts: 0, receivedAt: now - 1_000 }, now), true);
   assert.equal(isQuoteFresh({ ts: now + 600_000, receivedAt: now - 1_000 }, now), true);
   assert.equal(isQuoteFresh({ ts: 0, receivedAt: now - 181_000 }, now), false);
+  assert.equal(quoteTimestamp({ ts: now + 600_000, receivedAt: now - 1_000 }, now), now - 1_000);
+});
+
+test('card status prioritizes failures and keeps technical details out of the tooltip', () => {
+  const now = 2_000_000;
+  const quote = { ts: now - 181_000, receivedAt: now };
+  assert.equal(quoteStatus('sse', quote, now, new Map()).kind, 'stale');
+
+  const failure = { id: 'sse', source: 'tencent', message: 'request failed: secret detail' };
+  const status = quoteStatus('sse', quote, now, new Map([['sse', failure]]));
+  assert.equal(status.kind, 'error');
+  const title = quoteStatusTitle(status, quote);
+  assert.match(title, /数据源暂时不可用/);
+  assert.doesNotMatch(title, /secret detail/);
 });
 
 test('FX inversion preserves the mathematically inverted change direction', () => {

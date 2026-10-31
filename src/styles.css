@@ -15,6 +15,16 @@ html[data-theme="muye"]    { --bg: #eae6f0; --shd: #ccc3dc; --shl: #ffffff; --tx
 html[data-theme="shuini"]  { --bg: #e3e5e7; --shd: #c3c7cb; --shl: #ffffff; --tx: #33373b; --tx2: #878f96; --accent: #667080; }
 html[data-theme="tanhei"]  { --bg: #2b2e33; --shd: #1d2024; --shl: #383d45; --tx: #e9eaec; --tx2: #9aa0a8; --accent: #8ab4f8; }
 
+html {
+  --status-stale: color-mix(in srgb, var(--accent) 58%, #c78b32);
+  --status-error: color-mix(in srgb, var(--tx) 10%, #d55353);
+}
+
+html[data-theme="tanhei"] {
+  --status-stale: color-mix(in srgb, var(--accent) 38%, #d6a54e);
+  --status-error: #e27676;
+}
+
 body.updown-cn   { --up: #e05252; --down: #2f9e63; }
 body.updown-intl { --up: #2f9e63; --down: #e05252; }
 
@@ -131,7 +141,7 @@ body {
   letter-spacing: 0.4px;
 }
 
-.card .name > span {
+.card .name-text {
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -154,6 +164,27 @@ body {
 }
 
 .fx-swap:hover { color: var(--accent); }
+
+.card-status {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 72%, transparent);
+}
+
+.card-status.stale { background: var(--status-stale); }
+.card-status.error { background: var(--status-error); }
+
+.card.data-stale .price,
+.card.data-stale .chg {
+  opacity: 0.64;
+}
+
+.card.data-error .price,
+.card.data-error .chg {
+  opacity: 0.56;
+}
 
 .card .price {
   font-size: 21px;
