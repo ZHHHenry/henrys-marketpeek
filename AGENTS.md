@@ -20,9 +20,9 @@
 ## 数据流（改行情相关代码前先读）
 
 1. 内置品种：前端 `invoke('fetch_quotes', { ids })` → Rust `fetch_quotes`；自选品种：前端 `invoke('fetch_custom_quotes', { items })` → Rust 按 `source` 路由同一组解析器（`*_with` 变体以自定义 id 映射）。
-2. Rust 按品种 `source` 分组请求：腾讯（GBK）/ 新浪（GBK）/ 东方财富（JSON），逐源解析为 `Quote { id, price, change, pct, ts }`，`ts` 为 epoch 毫秒。
-3. 返回 `Vec<Quote>` → 前端写入 `quotes` Map → `renderCards()` 刷新卡片；某源失败只影响该源品种（卡片保留上一笔或显示 `--`），不影响其他源。
-4. 轮询：`tick()` 按所选间隔执行；当所有卡片 `ts` 均超过 180 秒未更新时，间隔自动放宽到 60 秒——**这是数据新鲜度判断，不是交易日历**。
+2. Rust 按品种 `source` 并发请求：腾讯（HTTPS + GBK）/ 新浪（HTTPS + GBK）/ 东方财富（HTTPS + JSON），解析为 `Quote { id, price, change, pct, ts }`；响应体受大小限制，HTTP / 解析失败按品种写入 `failures`。
+3. 两个命令均返回 `{ quotes, failures }`；前端并发调用并独立合并成功结果，失败卡片保留上一笔或显示 `--`，不得因另一组请求失败而丢弃成功行情。
+4. 轮询：`tick()` 只检查当前所选卡片；优先使用有效的源时间戳 `ts`，源不提供时间或时间明显超前时回退到本次接收时间。当前所选行情均超过 180 秒未更新时，间隔自动放宽到 60 秒——**这是数据新鲜度判断，不是交易日历**。
 5. 为何多源：各接口品种覆盖不同（如各全球指数走东方财富、日经 / 沪金走新浪），按品种选择可用的源；新增品种必须确认「源 + 解析器」匹配（见下「新增 / 修改品种清单」）。
 
 ## 强制同步项（改动必查）
@@ -39,6 +39,7 @@
 - `quotes.rs` 的 `POOL`：id、中英名称与简称、中英分类、`decimals`、`code`、`source` 六类字段；
 - 确认所属源的解析器与格式匹配：腾讯 `parse_std / parse_hf / parse_wh`、新浪 `parse_nf / parse_int`、东方财富 `parse_eastmoney`（时间戳统一为 epoch 毫秒，时区走 `ts_from`：A 股/港股 Asia/Shanghai、美股 America/New_York）；
 - 前端无需登记：品种列表由 `get_instruments` 命令动态返回。
+- 自选代码同样受现有解析器范围约束：新浪仅接受 `nf_` / `int_`，东方财富使用 `market.symbol`；新增解析格式时同步 Rust / 前端校验与说明。
 
 ### 3. 主题同步清单
 
@@ -61,6 +62,7 @@
 - 构建：`npm install` → `npm run dev` / `npm run build`；**postbuild 会自动把 `src-tauri/target/release/marketpeek.exe` 剪切到根目录 `MarketPeek.exe`**（成品只放根目录、源位置不留副本、不入库）。
 - **构建脚本一律使用相对路径**（以项目根为基准，如 `postbuild` 中对 `src-tauri\target\release\...` 的引用），不得写死绝对路径；项目整体移动后若构建报旧路径相关错误，先清理/改名 `target` 中相关构建脚本缓存再重建。
 - 质量门槛：Rust 改动跑 `cd src-tauri && cargo check`；解析层单测跑 `cd src-tauri && cargo test`（新增 / 修改解析器必须补用例）；行情解析类改动仍须在 `npm run dev` 下实测对应品种（含休市 / 断网表现）。
+- 全量本地检查统一运行 `npm run check`（前端语法与测试 + Rust fmt / Clippy / 单测）；单项失败不得跳过。
 
 ## 常用命令
 
@@ -69,6 +71,8 @@ npm install                  # 安装前端依赖（首次）
 npm run dev                  # 开发模式（tauri dev）
 npm run build                # 发布构建；postbuild 自动剪切 exe 到根目录
 npm start                    # 运行根目录已构建的 exe（需先 npm run build）
+npm test                     # 前端核心状态 / 轮询逻辑测试
+npm run check                # 前端 + Rust 全量本地质量检查
 cd src-tauri && cargo check  # Rust 质量门槛
 cd src-tauri && cargo test   # 解析层单元测试
 ```

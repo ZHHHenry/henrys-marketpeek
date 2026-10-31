@@ -4,12 +4,21 @@ mod quotes;
 
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use std::{fs, io::Write};
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, PhysicalPosition, WebviewWindow, WindowEvent};
 
-static LAST_SAVE: Mutex<Option<Instant>> = Mutex::new(None);
+struct PositionSaveState {
+    last_save: Option<Instant>,
+    latest: Option<PhysicalPosition<i32>>,
+}
+
+static POSITION_STATE: Mutex<PositionSaveState> = Mutex::new(PositionSaveState {
+    last_save: None,
+    latest: None,
+});
 
 fn main() {
     tauri::Builder::default()
@@ -56,6 +65,7 @@ fn hide_window(app: tauri::AppHandle) {
 
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
+    save_latest_position(&app);
     app.exit(0);
 }
 
@@ -99,7 +109,10 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "show" => show_main(app),
-            "quit" => app.exit(0),
+            "quit" => {
+                save_latest_position(app);
+                app.exit(0);
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {
@@ -128,10 +141,16 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
 }
 
 fn config_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
-    app.path().app_config_dir().ok().map(|d| d.join("window.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|d| d.join("window.json"))
 }
 
 fn place_window(win: &WebviewWindow) {
+    let size = win
+        .outer_size()
+        .unwrap_or(tauri::PhysicalSize::new(420, 320));
     if let Some(path) = config_path(win.app_handle()) {
         if let Ok(txt) = std::fs::read_to_string(&path) {
             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
@@ -139,15 +158,19 @@ fn place_window(win: &WebviewWindow) {
                     v.get("x").and_then(|v| v.as_i64()),
                     v.get("y").and_then(|v| v.as_i64()),
                 ) {
-                    let _ = win.set_position(PhysicalPosition::new(x as i32, y as i32));
-                    return;
+                    if let (Ok(x), Ok(y)) = (i32::try_from(x), i32::try_from(y)) {
+                        let position = PhysicalPosition::new(x, y);
+                        if position_is_visible(win, position, size) {
+                            let _ = win.set_position(position);
+                            return;
+                        }
+                    }
                 }
             }
         }
     }
     if let Ok(Some(mon)) = win.primary_monitor() {
         let scale = win.scale_factor().unwrap_or(1.0);
-        let size = win.outer_size().unwrap_or(tauri::PhysicalSize::new(420, 320));
         let msize = mon.size();
         let mpos = mon.position();
         let margin = (16.0 * scale) as i32;
@@ -157,24 +180,125 @@ fn place_window(win: &WebviewWindow) {
     }
 }
 
+fn position_is_visible(
+    win: &WebviewWindow,
+    position: PhysicalPosition<i32>,
+    size: tauri::PhysicalSize<u32>,
+) -> bool {
+    let Ok(monitors) = win.available_monitors() else {
+        return false;
+    };
+    const MIN_VISIBLE: i64 = 80;
+    let left = i64::from(position.x);
+    let top = i64::from(position.y);
+    let right = left + i64::from(size.width);
+    let bottom = top + i64::from(size.height);
+    monitors.iter().any(|monitor| {
+        let monitor_position = monitor.position();
+        let monitor_size = monitor.size();
+        rectangle_has_minimum_overlap(
+            (left, top, right, bottom),
+            (
+                i64::from(monitor_position.x),
+                i64::from(monitor_position.y),
+                i64::from(monitor_position.x) + i64::from(monitor_size.width),
+                i64::from(monitor_position.y) + i64::from(monitor_size.height),
+            ),
+            MIN_VISIBLE,
+        )
+    })
+}
+
+fn rectangle_has_minimum_overlap(
+    window: (i64, i64, i64, i64),
+    monitor: (i64, i64, i64, i64),
+    minimum: i64,
+) -> bool {
+    let visible_width = window.2.min(monitor.2) - window.0.max(monitor.0);
+    let visible_height = window.3.min(monitor.3) - window.1.max(monitor.1);
+    visible_width >= minimum && visible_height >= minimum
+}
+
 fn save_position_throttled(app: &tauri::AppHandle, pos: PhysicalPosition<i32>) {
-    {
-        let mut last = match LAST_SAVE.lock() {
-            Ok(guard) => guard,
-            Err(poisoned) => poisoned.into_inner(),
-        };
+    let should_save = {
+        let mut state = lock_position_state();
+        state.latest = Some(pos);
         let now = Instant::now();
-        if let Some(t) = *last {
+        if let Some(t) = state.last_save {
             if now.duration_since(t) < Duration::from_millis(400) {
+                false
+            } else {
+                state.last_save = Some(now);
+                true
+            }
+        } else {
+            state.last_save = Some(now);
+            true
+        }
+    };
+    if should_save {
+        write_position(app, pos);
+    }
+}
+
+fn save_latest_position(app: &tauri::AppHandle) {
+    let latest = lock_position_state().latest;
+    if let Some(position) = latest {
+        write_position(app, position);
+    }
+}
+
+fn lock_position_state() -> std::sync::MutexGuard<'static, PositionSaveState> {
+    POSITION_STATE
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+fn write_position(app: &tauri::AppHandle, pos: PhysicalPosition<i32>) {
+    if let Some(path) = config_path(app) {
+        if let Some(dir) = path.parent() {
+            if let Err(error) = fs::create_dir_all(dir) {
+                eprintln!("failed to create position config directory: {error}");
                 return;
             }
         }
-        *last = Some(now);
-    }
-    if let Some(path) = config_path(app) {
-        if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
+        let data = serde_json::json!({ "x": pos.x, "y": pos.y }).to_string();
+        match fs::File::create(&path).and_then(|mut file| {
+            file.write_all(data.as_bytes())?;
+            file.sync_all()
+        }) {
+            Ok(()) => {}
+            Err(error) => eprintln!("failed to save window position: {error}"),
         }
-        let _ = std::fs::write(path, serde_json::json!({ "x": pos.x, "y": pos.y }).to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::rectangle_has_minimum_overlap;
+
+    #[test]
+    fn window_position_requires_a_usable_visible_area() {
+        let monitor = (0, 0, 1920, 1080);
+        assert!(rectangle_has_minimum_overlap(
+            (1500, 50, 1920, 370),
+            monitor,
+            80
+        ));
+        assert!(rectangle_has_minimum_overlap(
+            (-340, 50, 80, 370),
+            monitor,
+            80
+        ));
+        assert!(!rectangle_has_minimum_overlap(
+            (-341, 50, 79, 370),
+            monitor,
+            80
+        ));
+        assert!(!rectangle_has_minimum_overlap(
+            (2000, 50, 2420, 370),
+            monitor,
+            80
+        ));
     }
 }

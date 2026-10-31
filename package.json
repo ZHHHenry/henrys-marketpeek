@@ -8,7 +8,10 @@
     "build": "tauri build",
     "postbuild": "move /Y \"src-tauri\\target\\release\\marketpeek.exe\" \"MarketPeek.exe\"",
     "start": "MarketPeek.exe",
-    "icon": "tauri icon"
+    "icon": "tauri icon",
+    "test": "node --test tests/main.test.js",
+    "check:frontend": "node --check src/main.js",
+    "check": "npm run check:frontend && npm test && cd src-tauri && cargo fmt --all -- --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

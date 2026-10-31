@@ -112,27 +112,91 @@ const CURRENCY_ZH = {
   MYR: '马来西亚林吉特',
 };
 
-const DEFAULTS = { selected: ['sse', 'gold', 'dji'], theme: 'shimo', updown: 'cn', interval: 10, lang: 'zh', custom: [], swapped: {} };
+const SETTINGS_SCHEMA = 2;
+const DEFAULTS = { schemaVersion: SETTINGS_SCHEMA, selected: ['sse', 'gold', 'dji'], theme: 'shimo', updown: 'cn', interval: 10, lang: 'zh', custom: [], swapped: {} };
 const STORE_KEY = 'mp-settings-v1';
+const VALID_INTERVALS = new Set([5, 10, 30]);
+const VALID_SOURCES = new Set(['tencent', 'sina', 'eastmoney']);
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const STALE_AFTER_MS = 180 * 1000;
 
 let poolInstruments = [];
 let instruments = [];
 let byId = new Map();
 let state = loadState();
 let quotes = new Map();
+let quoteFailures = new Map();
 let paused = false;
 let timer = null;
 let pinned = true;
 let suppressRowClickUntil = 0;
+let refreshRevision = 0;
+let completedRefreshRevision = 0;
+let refreshLoopPromise = null;
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
+    if (raw) return normalizeState(JSON.parse(raw));
   } catch (e) {
     console.warn('settings load failed', e);
   }
-  return { ...DEFAULTS };
+  return normalizeState(DEFAULTS);
+}
+
+function normalizeState(value) {
+  const input = value && typeof value === 'object' ? value : {};
+  const custom = Array.isArray(input.custom)
+    ? input.custom.map(normalizeCustomInstrument).filter(Boolean)
+    : [];
+  const uniqueCustom = [];
+  const customCodes = new Set();
+  for (const item of custom) {
+    if (customCodes.has(item.code)) continue;
+    customCodes.add(item.code);
+    uniqueCustom.push(item);
+  }
+  const selected = Array.isArray(input.selected)
+    ? [...new Set(input.selected.filter((id) => typeof id === 'string'))].slice(0, 4)
+    : [...DEFAULTS.selected];
+  const swapped = {};
+  if (input.swapped && typeof input.swapped === 'object' && !Array.isArray(input.swapped)) {
+    for (const [id, value] of Object.entries(input.swapped)) {
+      if (typeof id === 'string' && typeof value === 'boolean') swapped[id] = value;
+    }
+  }
+  return {
+    schemaVersion: SETTINGS_SCHEMA,
+    selected,
+    theme: THEMES.some((theme) => theme.id === input.theme) ? input.theme : DEFAULTS.theme,
+    updown: input.updown === 'intl' ? 'intl' : 'cn',
+    interval: VALID_INTERVALS.has(Number(input.interval)) ? Number(input.interval) : DEFAULTS.interval,
+    lang: input.lang === 'en' ? 'en' : 'zh',
+    custom: uniqueCustom,
+    swapped,
+  };
+}
+
+function normalizeCustomInstrument(value) {
+  if (!value || typeof value !== 'object') return null;
+  const name = typeof value.name === 'string' ? value.name.trim().slice(0, 24) : '';
+  const code = typeof value.code === 'string' ? value.code.trim().slice(0, 32) : '';
+  const source = VALID_SOURCES.has(value.source) ? value.source : '';
+  if (!name || !isValidCustomCode(code, source)) return null;
+  return {
+    id: `c_${code}`,
+    name,
+    code,
+    source,
+    decimals: code.toLowerCase().startsWith('wh') ? 4 : 2,
+  };
+}
+
+function isValidCustomCode(code, source) {
+  if (!VALID_SOURCES.has(source) || !/^[A-Za-z0-9_.]{1,32}$/.test(code)) return false;
+  if (source === 'sina') return code.startsWith('nf_') || code.startsWith('int_');
+  if (source === 'eastmoney') return /^[A-Za-z0-9]+\.[A-Za-z0-9]+$/.test(code);
+  return true;
 }
 
 function saveState() {
@@ -159,6 +223,7 @@ function instCategory(inst) {
 async function init() {
   poolInstruments = await invoke('get_instruments');
   rebuildInstruments();
+  reconcileState();
 
   bindEvents();
   renderAll();
@@ -176,7 +241,16 @@ async function init() {
   });
 
   await refresh();
-  schedule(state.interval * 1000);
+  if (!paused) schedule(state.interval * 1000);
+}
+
+function reconcileState() {
+  const validIds = new Set(instruments.map((instrument) => instrument.id));
+  state.selected = state.selected.filter((id) => validIds.has(id)).slice(0, 4);
+  state.swapped = Object.fromEntries(
+    Object.entries(state.swapped || {}).filter(([id, value]) => validIds.has(id) && typeof value === 'boolean'),
+  );
+  saveState();
 }
 
 function rebuildInstruments() {
@@ -474,10 +548,10 @@ async function submitAdd() {
   const confirmBtn = document.getElementById('btn-add-confirm');
   confirmBtn.disabled = true;
   try {
-    const list = await invoke('fetch_custom_quotes', {
+    const response = await invoke('fetch_custom_quotes', {
       items: [{ id, code, source: addSource }],
     });
-    if (!list.length) {
+    if (!response.quotes.length) {
       showAddError(t('addNoQuote'));
       return;
     }
@@ -520,9 +594,20 @@ function toggleInstrument(id) {
     state.selected.push(id);
   }
   saveState();
+  pruneQuoteState();
   renderCards();
   renderInstrumentList();
   refresh();
+}
+
+function pruneQuoteState() {
+  const selected = new Set(state.selected);
+  for (const id of quotes.keys()) {
+    if (!selected.has(id)) quotes.delete(id);
+  }
+  for (const id of quoteFailures.keys()) {
+    if (!selected.has(id)) quoteFailures.delete(id);
+  }
 }
 
 function startRowReorder(e, row) {
@@ -769,38 +854,88 @@ function showView(view) {
   document.getElementById('btn-settings').classList.toggle('active', view === 'settings');
 }
 
-async function refresh() {
+function refresh() {
+  refreshRevision += 1;
+  if (!refreshLoopPromise) refreshLoopPromise = runRefreshLoop();
+  return refreshLoopPromise;
+}
+
+async function runRefreshLoop() {
+  try {
+    while (completedRefreshRevision < refreshRevision) {
+      const revision = refreshRevision;
+      await refreshOnce(revision);
+      completedRefreshRevision = revision;
+    }
+  } finally {
+    refreshLoopPromise = null;
+    if (completedRefreshRevision < refreshRevision) return refresh();
+  }
+}
+
+async function refreshOnce(revision) {
   if (!state.selected.length) {
     quotes = new Map();
+    quoteFailures = new Map();
     renderCards();
     return;
   }
-  try {
-    const poolIds = [];
-    const customs = [];
-    for (const id of state.selected) {
-      const inst = byId.get(id);
-      if (!inst) continue;
-      if (inst.custom) customs.push({ id: inst.id, code: inst.code, source: inst.source });
-      else poolIds.push(id);
-    }
-    const list = poolIds.length ? await invoke('fetch_quotes', { ids: poolIds }) : [];
-    if (customs.length) {
-      const customQuotes = await invoke('fetch_custom_quotes', { items: customs });
-      list.push(...customQuotes);
-    }
-    for (const quote of list) quotes.set(quote.id, quote);
-  } catch (e) {
-    console.warn('fetch failed', e);
+  const poolIds = [];
+  const customs = [];
+  for (const id of state.selected) {
+    const inst = byId.get(id);
+    if (!inst) continue;
+    if (inst.custom) customs.push({ id: inst.id, code: inst.code, source: inst.source });
+    else poolIds.push(id);
   }
+  const requests = [];
+  if (poolIds.length) {
+    requests.push({ ids: poolIds, promise: invoke('fetch_quotes', { ids: poolIds }) });
+  }
+  if (customs.length) {
+    requests.push({ ids: customs.map((item) => item.id), promise: invoke('fetch_custom_quotes', { items: customs }) });
+  }
+  const results = await Promise.allSettled(requests.map((request) => request.promise));
+  if (revision !== refreshRevision) return;
+
+  const receivedAt = Date.now();
+  results.forEach((result, index) => {
+    const requestedIds = requests[index].ids;
+    if (result.status === 'rejected') {
+      console.warn('fetch failed', result.reason);
+      for (const id of requestedIds) quoteFailures.set(id, { id, source: '', message: String(result.reason) });
+      return;
+    }
+    const response = result.value;
+    for (const quote of response.quotes || []) {
+      if (!requestedIds.includes(quote.id)) continue;
+      quotes.set(quote.id, { ...quote, receivedAt });
+      quoteFailures.delete(quote.id);
+    }
+    for (const failure of response.failures || []) {
+      if (requestedIds.includes(failure.id)) quoteFailures.set(failure.id, failure);
+    }
+  });
+  pruneQuoteState();
   renderCards();
 }
 
 async function tick() {
   if (paused) return;
   await refresh();
-  const fresh = [...quotes.values()].some((q) => q.ts > 0 && Date.now() - q.ts < 180000);
+  if (paused) return;
+  const fresh = state.selected.some((id) => isQuoteFresh(quotes.get(id)));
   schedule((fresh ? state.interval : 60) * 1000);
+}
+
+function isQuoteFresh(quote, now = Date.now()) {
+  if (!quote) return false;
+  const sourceTs = Number(quote.ts);
+  const receivedAt = Number(quote.receivedAt);
+  const basis = Number.isFinite(sourceTs) && sourceTs > 0 && sourceTs <= now + MAX_FUTURE_SKEW_MS
+    ? sourceTs
+    : receivedAt;
+  return Number.isFinite(basis) && basis > 0 && now - basis >= 0 && now - basis < STALE_AFTER_MS;
 }
 
 function schedule(ms) {
@@ -832,4 +967,16 @@ async function fillVersion() {
   }
 }
 
-init().catch((e) => console.error('init failed', e));
+if (window.__MARKETPEEK_TEST__) {
+  window.__MARKETPEEK_TEST_API = {
+    invertQuote,
+    isQuoteFresh,
+    isValidCustomCode,
+    normalizeCustomInstrument,
+    normalizeState,
+  };
+}
+
+if (!window.__MARKETPEEK_SKIP_INIT__) {
+  init().catch((e) => console.error('init failed', e));
+}
