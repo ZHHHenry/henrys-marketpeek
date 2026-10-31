@@ -1,4 +1,6 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
 global.localStorage = {
@@ -21,15 +23,20 @@ global.window = {
 require('../src/main.js');
 
 const {
+  STR,
+  THEMES,
   invertQuote,
   isQuoteFresh,
   isValidCustomCode,
+  nextRefreshDelayMs,
   normalizeCustomInstrument,
   normalizeState,
   quoteStatus,
   quoteStatusTitle,
   quoteTimestamp,
 } = window.__MARKETPEEK_TEST_API;
+
+const projectRoot = path.resolve(__dirname, '..');
 
 test('normalizeState migrates malformed persisted settings to safe values', () => {
   const state = normalizeState({
@@ -79,6 +86,19 @@ test('freshness uses source time when present and receipt time as a safe fallbac
   assert.equal(quoteTimestamp({ ts: now + 600_000, receivedAt: now - 1_000 }, now), now - 1_000);
 });
 
+test('polling slows only when every selected quote is stale', () => {
+  const now = 2_000_000;
+  const quoteMap = new Map([
+    ['selected-stale', { ts: now - 181_000 }],
+    ['selected-fresh', { ts: now - 1_000 }],
+    ['deselected-fresh', { ts: now - 1_000 }],
+  ]);
+  assert.equal(nextRefreshDelayMs(['selected-stale'], quoteMap, 10, now), 60_000);
+  assert.equal(nextRefreshDelayMs(['selected-stale', 'selected-fresh'], quoteMap, 10, now), 10_000);
+  assert.equal(nextRefreshDelayMs(['selected-stale'], quoteMap, 5, now), 60_000);
+  assert.equal(nextRefreshDelayMs([], quoteMap, 30, now), 60_000);
+});
+
 test('card status prioritizes failures and keeps technical details out of the tooltip', () => {
   const now = 2_000_000;
   const quote = { ts: now - 181_000, receivedAt: now };
@@ -97,4 +117,45 @@ test('FX inversion preserves the mathematically inverted change direction', () =
   assert.equal(inverted.price, 0.5);
   assert.ok(Math.abs(inverted.change + 1 / 6) < 1e-12);
   assert.ok(Math.abs(inverted.pct + 25) < 1e-12);
+});
+
+test('theme definitions and translation keys stay synchronized', () => {
+  const css = fs.readFileSync(path.join(projectRoot, 'src', 'styles.css'), 'utf8');
+  const cssThemeIds = new Set(
+    [...css.matchAll(/html\[data-theme="([^"]+)"\]\s*\{/g)].map((match) => match[1]),
+  );
+  assert.deepEqual([...cssThemeIds].sort(), THEMES.map((theme) => theme.id).sort());
+  assert.deepEqual(Object.keys(STR.zh).sort(), Object.keys(STR.en).sort());
+});
+
+test('the custom instrument dialog is excluded from accessibility until opened', () => {
+  const html = fs.readFileSync(path.join(projectRoot, 'src', 'index.html'), 'utf8');
+  const main = fs.readFileSync(path.join(projectRoot, 'src', 'main.js'), 'utf8');
+  assert.match(
+    html,
+    /id="add-dialog"[^>]*class="[^"]*hidden[^"]*"[^>]*aria-hidden="true"[^>]*\binert\b/,
+  );
+  assert.match(main, /dialog\.removeAttribute\('inert'\)/);
+  assert.match(main, /dialog\.setAttribute\('aria-hidden', 'false'\)/);
+  assert.match(main, /dialog\.setAttribute\('aria-hidden', 'true'\)/);
+  assert.match(main, /dialog\.setAttribute\('inert', ''\)/);
+});
+
+test('release version remains synchronized across all three manifests', () => {
+  const packageVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).version;
+  const tauriVersion = JSON.parse(
+    fs.readFileSync(path.join(projectRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'),
+  ).version;
+  const cargo = fs.readFileSync(path.join(projectRoot, 'src-tauri', 'Cargo.toml'), 'utf8');
+  const cargoVersion = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+  assert.equal(packageVersion, tauriVersion);
+  assert.equal(packageVersion, cargoVersion);
+});
+
+test('vendored winres patch continues to preserve apostrophes in RC paths', () => {
+  const helper = fs.readFileSync(
+    path.join(projectRoot, 'src-tauri', 'vendor', 'tauri-winres', 'src', 'helpers.rs'),
+    'utf8',
+  );
+  assert.ok(helper.includes(String.raw`'\'' => escaped.push('\''),`));
 });

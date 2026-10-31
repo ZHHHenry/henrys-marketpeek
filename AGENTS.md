@@ -63,6 +63,7 @@
 - **构建脚本一律使用相对路径**（以项目根为基准，如 `postbuild` 中对 `src-tauri\target\release\...` 的引用），不得写死绝对路径；项目整体移动后若构建报旧路径相关错误，先清理/改名 `target` 中相关构建脚本缓存再重建。
 - 质量门槛：Rust 改动跑 `cd src-tauri && cargo check`；解析层单测跑 `cd src-tauri && cargo test`（新增 / 修改解析器必须补用例）；行情解析类改动仍须在 `npm run dev` 下实测对应品种（含休市 / 断网表现）。
 - 全量本地检查统一运行 `npm run check`（前端语法与测试 + Rust fmt / Clippy / 单测）；单项失败不得跳过。
+- 前端依赖审计运行 `npm run audit:frontend`；Rust 依赖由 CI 的 RustSec 审计任务检查。
 
 ## 常用命令
 
@@ -73,6 +74,7 @@ npm run build                # 发布构建；postbuild 自动剪切 exe 到根�
 npm start                    # 运行根目录已构建的 exe（需先 npm run build）
 npm test                     # 前端核心状态 / 轮询逻辑测试
 npm run check                # 前端 + Rust 全量本地质量检查
+npm run audit:frontend       # 查询 npm 漏洞数据库（需要联网）
 cd src-tauri && cargo check  # Rust 质量门槛
 cd src-tauri && cargo test   # 解析层单元测试
 ```

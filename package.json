@@ -11,6 +11,7 @@
     "icon": "tauri icon",
     "test": "node --test tests/main.test.js",
     "check:frontend": "node --check src/main.js",
+    "audit:frontend": "npm audit --audit-level=high",
     "check": "npm run check:frontend && npm test && cd src-tauri && cargo fmt --all -- --check && cargo clippy --locked --all-targets -- -D warnings && cargo test --locked"
   },
   "devDependencies": {

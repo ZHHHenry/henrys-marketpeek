@@ -58,6 +58,7 @@ const STR = {
     quoteInvalidResponse: '数据源未返回有效行情',
     quoteNoData: '暂无可用数据',
     quoteLastUpdated: '上次更新',
+    reorderInstrument: '调整品种顺序',
   },
   en: {
     selectInstruments: 'Select instruments',
@@ -101,6 +102,7 @@ const STR = {
     quoteInvalidResponse: 'Quote source returned no valid data',
     quoteNoData: 'No quote is available',
     quoteLastUpdated: 'Last updated',
+    reorderInstrument: 'Reorder instrument',
   },
 };
 
@@ -286,6 +288,7 @@ function applyState() {
   document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-CN';
   document.body.className = 'updown-' + state.updown;
   document.getElementById('btn-pin').classList.toggle('active', pinned);
+  document.getElementById('btn-pin').setAttribute('aria-pressed', String(pinned));
 }
 
 function applyI18n() {
@@ -449,10 +452,11 @@ function renderCards() {
   }
 
   for (let i = state.selected.length; i < 4; i++) {
-    const placeholder = document.createElement('div');
+    const placeholder = document.createElement('button');
     placeholder.className = 'card empty';
     placeholder.textContent = '+';
     placeholder.title = t('selectInstruments');
+    placeholder.setAttribute('aria-label', t('selectInstruments'));
     placeholder.addEventListener('click', () => showView('instruments'));
     grid.append(placeholder);
   }
@@ -536,6 +540,10 @@ function panelRow(inst, selected) {
   const row = document.createElement('div');
   row.className = 'panel-row' + (selected ? ' selected' : '');
   row.dataset.id = inst.id;
+  row.tabIndex = 0;
+  row.setAttribute('role', 'checkbox');
+  row.setAttribute('aria-checked', String(selected));
+  row.setAttribute('aria-label', displayInstName(inst));
 
   const name = document.createElement('span');
   name.className = 'row-name';
@@ -549,8 +557,17 @@ function panelRow(inst, selected) {
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
     handle.title = t('dragReorder');
+    handle.tabIndex = 0;
+    handle.setAttribute('role', 'button');
+    handle.setAttribute('aria-label', `${t('reorderInstrument')}: ${displayInstName(inst)}`);
     handle.addEventListener('mousedown', (e) => startRowReorder(e, row));
     handle.addEventListener('click', (e) => e.stopPropagation());
+    handle.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      e.stopPropagation();
+      moveSelectedInstrument(inst.id, e.key === 'ArrowUp' ? -1 : 1);
+    });
     row.append(handle, name, mark);
   } else {
     row.append(name, mark);
@@ -560,8 +577,17 @@ function panelRow(inst, selected) {
     remove.className = 'row-remove';
     remove.textContent = '×';
     remove.title = t('removeInstrument');
+    remove.tabIndex = 0;
+    remove.setAttribute('role', 'button');
+    remove.setAttribute('aria-label', `${t('removeInstrument')}: ${displayInstName(inst)}`);
     remove.addEventListener('mousedown', (e) => e.stopPropagation());
     remove.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeCustomInstrument(inst.id);
+    });
+    remove.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
       e.stopPropagation();
       removeCustomInstrument(inst.id);
     });
@@ -571,7 +597,25 @@ function panelRow(inst, selected) {
     if (Date.now() < suppressRowClickUntil) return;
     toggleInstrument(inst.id);
   });
+  row.addEventListener('keydown', (e) => {
+    if (e.target !== row || (e.key !== 'Enter' && e.key !== ' ')) return;
+    e.preventDefault();
+    toggleInstrument(inst.id);
+  });
   return row;
+}
+
+function moveSelectedInstrument(id, offset) {
+  const from = state.selected.indexOf(id);
+  const to = Math.min(state.selected.length - 1, Math.max(0, from + offset));
+  if (from < 0 || from === to) return;
+  state.selected.splice(from, 1);
+  state.selected.splice(to, 0, id);
+  saveState();
+  renderCards();
+  renderInstrumentList();
+  const row = [...document.querySelectorAll('.panel-row.selected')].find((item) => item.dataset.id === id);
+  row?.querySelector('.drag-handle')?.focus();
 }
 
 let addSource = 'tencent';
@@ -584,12 +628,19 @@ function openAddDialog() {
   for (const btn of document.querySelectorAll('#seg-source button')) {
     btn.classList.toggle('on', btn.dataset.v === 'tencent');
   }
-  document.getElementById('add-dialog').classList.remove('hidden');
+  const dialog = document.getElementById('add-dialog');
+  dialog.classList.remove('hidden');
+  dialog.removeAttribute('inert');
+  dialog.setAttribute('aria-hidden', 'false');
   document.getElementById('add-name').focus();
 }
 
 function closeAddDialog() {
-  document.getElementById('add-dialog').classList.add('hidden');
+  const dialog = document.getElementById('add-dialog');
+  dialog.classList.add('hidden');
+  dialog.setAttribute('aria-hidden', 'true');
+  dialog.setAttribute('inert', '');
+  document.getElementById('btn-add-instrument').focus();
 }
 
 function showAddError(message) {
@@ -813,16 +864,24 @@ function textColorFor(hex) {
 
 function renderSettingsState() {
   for (const btn of document.querySelectorAll('.theme-swatch')) {
-    btn.classList.toggle('on', btn.dataset.themeId === state.theme);
+    const on = btn.dataset.themeId === state.theme;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
   }
   for (const btn of document.querySelectorAll('#seg-updown button')) {
-    btn.classList.toggle('on', btn.dataset.v === state.updown);
+    const on = btn.dataset.v === state.updown;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
   }
   for (const btn of document.querySelectorAll('#seg-interval button')) {
-    btn.classList.toggle('on', Number(btn.dataset.v) === state.interval);
+    const on = Number(btn.dataset.v) === state.interval;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
   }
   for (const btn of document.querySelectorAll('#seg-lang button')) {
-    btn.classList.toggle('on', btn.dataset.v === state.lang);
+    const on = btn.dataset.v === state.lang;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
   }
 }
 
@@ -840,7 +899,20 @@ function bindEvents() {
   });
   addDialog.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeAddDialog();
-    if (e.key === 'Enter') submitAdd();
+    if (e.key === 'Enter' && e.target.matches('input')) submitAdd();
+    if (e.key === 'Tab') {
+      const focusable = [...addDialog.querySelectorAll('button:not(:disabled), input:not(:disabled)')];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   });
   for (const btn of document.querySelectorAll('#seg-source button')) {
     btn.addEventListener('click', () => {
@@ -921,6 +993,8 @@ function showView(view) {
   document.getElementById('view-settings').classList.toggle('hidden', view !== 'settings');
   document.getElementById('btn-instruments').classList.toggle('active', view === 'instruments');
   document.getElementById('btn-settings').classList.toggle('active', view === 'settings');
+  document.getElementById('btn-instruments').setAttribute('aria-expanded', String(view === 'instruments'));
+  document.getElementById('btn-settings').setAttribute('aria-expanded', String(view === 'settings'));
 }
 
 function refresh() {
@@ -993,13 +1067,17 @@ async function tick() {
   if (paused) return;
   await refresh();
   if (paused) return;
-  const fresh = state.selected.some((id) => isQuoteFresh(quotes.get(id)));
-  schedule((fresh ? state.interval : 60) * 1000);
+  schedule(nextRefreshDelayMs(state.selected, quotes, state.interval));
 }
 
 function isQuoteFresh(quote, now = Date.now()) {
   const basis = quoteTimestamp(quote, now);
   return Number.isFinite(basis) && basis > 0 && now - basis >= 0 && now - basis < STALE_AFTER_MS;
+}
+
+function nextRefreshDelayMs(selected, quoteMap, intervalSeconds, now = Date.now()) {
+  const hasFreshQuote = selected.some((id) => isQuoteFresh(quoteMap.get(id), now));
+  return (hasFreshQuote ? intervalSeconds : 60) * 1000;
 }
 
 function schedule(ms) {
@@ -1033,9 +1111,12 @@ async function fillVersion() {
 
 if (window.__MARKETPEEK_TEST__) {
   window.__MARKETPEEK_TEST_API = {
+    STR,
+    THEMES,
     invertQuote,
     isQuoteFresh,
     isValidCustomCode,
+    nextRefreshDelayMs,
     normalizeCustomInstrument,
     normalizeState,
     quoteStatus,

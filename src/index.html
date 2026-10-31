@@ -98,9 +98,9 @@
       </section>
     </main>
   </div>
-  <div id="add-dialog" class="dialog-backdrop hidden">
-    <div class="dialog">
-      <h3 data-i18n="addInstrument">添加自选品种</h3>
+  <div id="add-dialog" class="dialog-backdrop hidden" aria-hidden="true" inert>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="add-dialog-title">
+      <h3 id="add-dialog-title" data-i18n="addInstrument">添加自选品种</h3>
       <label class="dialog-label"><span data-i18n="nameLabel">名称</span>
         <input id="add-name" maxlength="24" autocomplete="off" />
       </label>
@@ -114,14 +114,14 @@
           <button data-v="eastmoney" data-i18n="srcEastmoney">东方财富</button>
         </div>
       </div>
-      <div id="add-error" class="dialog-error hidden"></div>
+      <div id="add-error" class="dialog-error hidden" role="alert" aria-live="assertive"></div>
       <div class="dialog-actions">
         <button class="btn" id="btn-add-cancel" data-i18n="dialogCancel">取消</button>
         <button class="btn" id="btn-add-confirm" data-i18n="dialogAdd">添加</button>
       </div>
     </div>
   </div>
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="main.js"></script>
 </body>
 </html>

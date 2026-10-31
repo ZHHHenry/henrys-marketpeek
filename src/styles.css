@@ -210,6 +210,8 @@ body {
 .card .chg.down { color: var(--down); }
 
 .card.empty {
+  border: none;
+  font-family: inherit;
   color: var(--tx2);
   font-size: 17px;
   align-items: center;
@@ -220,6 +222,13 @@ body {
 }
 
 .card.empty:hover { opacity: 1; color: var(--accent); }
+
+button:focus-visible,
+[role="button"]:focus-visible,
+.panel-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
 .panel {
   border-radius: 14px;
