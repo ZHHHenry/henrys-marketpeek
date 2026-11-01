@@ -140,15 +140,47 @@ test('status tooltip stays inside the viewport and flips above near the bottom e
     ),
     { left: 10, top: 117, placement: 'top' },
   );
+  assert.deepEqual(
+    tooltipPosition(
+      { top: 20, left: 8, right: 41, bottom: 53, height: 33 },
+      { width: 80, height: 30 },
+      300,
+      200,
+      'right',
+    ),
+    { left: 48, top: 22, placement: 'right' },
+  );
+  assert.deepEqual(
+    tooltipPosition(
+      { top: 170, left: 270, right: 303, bottom: 203, height: 33 },
+      { width: 80, height: 30 },
+      300,
+      200,
+      'right',
+    ),
+    { left: 183, top: 160, placement: 'left' },
+  );
 });
 
 test('status details are exposed only from the status point, not the whole card', () => {
   const html = fs.readFileSync(path.join(projectRoot, 'src', 'index.html'), 'utf8');
   const main = fs.readFileSync(path.join(projectRoot, 'src', 'main.js'), 'utf8');
-  assert.match(html, /id="quote-tooltip"[^>]*role="tooltip"[^>]*hidden/);
+  assert.match(html, /id="app-tooltip"[^>]*role="tooltip"[^>]*hidden/);
   assert.doesNotMatch(main, /card\.title\s*=/);
-  assert.match(main, /statusDot\.addEventListener\('mouseenter'/);
-  assert.match(main, /statusDot\.addEventListener\('focus'/);
+  assert.match(main, /bindTooltip\(statusDot/);
+});
+
+test('native title popups are eliminated and only approved controls bind styled tooltips', () => {
+  const html = fs.readFileSync(path.join(projectRoot, 'src', 'index.html'), 'utf8');
+  const main = fs.readFileSync(path.join(projectRoot, 'src', 'main.js'), 'utf8');
+  assert.doesNotMatch(html, /\stitle="/);
+  assert.doesNotMatch(main, /\.title\s*=/);
+  for (const id of ['btn-instruments', 'btn-pin', 'btn-settings', 'btn-add-instrument']) {
+    assert.match(html, new RegExp(`id="${id}"[^>]*data-tooltip-key=`));
+  }
+  assert.match(main, /bindTooltip\(swapBtn/);
+  assert.doesNotMatch(main, /bindTooltip\(handle/);
+  assert.doesNotMatch(main, /bindTooltip\(btn,.*theme/);
 });
 
 test('FX inversion preserves the mathematically inverted change direction', () => {

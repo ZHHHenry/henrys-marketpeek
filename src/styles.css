@@ -197,7 +197,7 @@ body {
   outline-offset: 1px;
 }
 
-.quote-tooltip {
+.app-tooltip {
   position: fixed;
   z-index: 20;
   width: max-content;
@@ -217,28 +217,33 @@ body {
   pointer-events: none;
 }
 
-.quote-tooltip[hidden] { display: none; }
+.app-tooltip[hidden] { display: none; }
 
-.quote-tooltip.show {
+.app-tooltip.show {
   opacity: 1;
   transform: translateY(0);
 }
 
-.quote-tooltip[data-placement="top"] {
+.app-tooltip[data-placement="top"] {
   transform: translateY(2px);
 }
 
-.quote-tooltip[data-placement="top"].show { transform: translateY(0); }
+.app-tooltip[data-placement="top"].show { transform: translateY(0); }
 
-.quote-tooltip-reason {
+.app-tooltip[data-placement="right"] { transform: translateX(-2px); }
+.app-tooltip[data-placement="left"] { transform: translateX(2px); }
+.app-tooltip[data-placement="right"].show,
+.app-tooltip[data-placement="left"].show { transform: translateX(0); }
+
+.app-tooltip-title {
   font-weight: 650;
   color: var(--tx);
 }
 
-.quote-tooltip[data-kind="stale"] .quote-tooltip-reason { color: var(--status-stale); }
-.quote-tooltip[data-kind="error"] .quote-tooltip-reason { color: var(--status-error); }
+.app-tooltip[data-kind="stale"] .app-tooltip-title { color: var(--status-stale); }
+.app-tooltip[data-kind="error"] .app-tooltip-title { color: var(--status-error); }
 
-.quote-tooltip-time {
+.app-tooltip-detail {
   margin-top: 2px;
   color: var(--tx2);
   font-variant-numeric: tabular-nums;

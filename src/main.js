@@ -36,7 +36,6 @@ const STR = {
     quit: '退出',
     disclaimer: '行情数据来自腾讯 / 新浪 / 东方财富公开接口，仅供参考，不构成投资建议。',
     shownGroup: '已显示（点击移除）',
-    dragReorder: '拖动排序',
     toastMax: '最多显示 4 张，先关一张',
     addInstrument: '添加自选品种',
     nameLabel: '名称',
@@ -84,7 +83,6 @@ const STR = {
     quit: 'Quit',
     disclaimer: 'Quotes from Tencent / Sina / Eastmoney public APIs. For reference only, not investment advice.',
     shownGroup: 'Shown (click to remove)',
-    dragReorder: 'Drag to reorder',
     toastMax: 'Up to 4 cards — remove one first',
     addInstrument: 'Add custom instrument',
     nameLabel: 'Name',
@@ -309,8 +307,8 @@ function applyI18n() {
   for (const el of document.querySelectorAll('[data-i18n]')) {
     el.textContent = t(el.dataset.i18n);
   }
-  for (const el of document.querySelectorAll('[data-i18n-title]')) {
-    el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll('[data-i18n-label]')) {
+    el.setAttribute('aria-label', t(el.dataset.i18nLabel));
   }
 }
 
@@ -402,7 +400,7 @@ function renderCards() {
   const focusedStatusId = document.activeElement?.matches?.('.card-status')
     ? document.activeElement.dataset.quoteId
     : null;
-  hideQuoteTooltip();
+  hideAppTooltip();
   grid.innerHTML = '';
   for (const id of state.selected) {
     const inst = byId.get(id);
@@ -423,9 +421,11 @@ function renderCards() {
     name.append(nameText);
     if (isSwappable(inst)) {
       const swapBtn = document.createElement('button');
+      swapBtn.type = 'button';
       swapBtn.className = 'fx-swap';
       swapBtn.textContent = '⇄';
-      swapBtn.title = t('swapFx');
+      swapBtn.setAttribute('aria-label', t('swapFx'));
+      bindTooltip(swapBtn, () => ({ title: t('swapFx') }));
       swapBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleFxSwap(inst.id);
@@ -438,15 +438,9 @@ function renderCards() {
       statusDot.className = `card-status ${status.kind}`;
       statusDot.dataset.quoteId = id;
       statusDot.setAttribute('aria-label', quoteStatusTitle(status, raw));
-      statusDot.addEventListener('mouseenter', () => showQuoteTooltip(statusDot, status, raw));
-      statusDot.addEventListener('mouseleave', hideQuoteTooltip);
-      statusDot.addEventListener('focus', () => showQuoteTooltip(statusDot, status, raw));
-      statusDot.addEventListener('blur', hideQuoteTooltip);
-      statusDot.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-          hideQuoteTooltip();
-          statusDot.blur();
-        }
+      bindTooltip(statusDot, () => {
+        const details = quoteStatusDetails(status, raw);
+        return { title: details.reason, detail: details.updated, kind: status.kind };
       });
       name.append(statusDot);
     }
@@ -481,7 +475,6 @@ function renderCards() {
     const placeholder = document.createElement('button');
     placeholder.className = 'card empty';
     placeholder.textContent = '+';
-    placeholder.title = t('selectInstruments');
     placeholder.setAttribute('aria-label', t('selectInstruments'));
     placeholder.addEventListener('click', () => showView('instruments'));
     grid.append(placeholder);
@@ -530,7 +523,27 @@ function quoteStatusTitle(status, quote) {
   return [details.reason, details.updated].filter(Boolean).join(' · ');
 }
 
-function tooltipPosition(anchorRect, tooltipRect, viewportWidth, viewportHeight, margin = 10, gap = 7) {
+function tooltipPosition(
+  anchorRect,
+  tooltipRect,
+  viewportWidth,
+  viewportHeight,
+  preferred = 'bottom',
+  margin = 10,
+  gap = 7,
+) {
+  if (preferred === 'right') {
+    const right = anchorRect.right + gap;
+    const leftSide = anchorRect.left - tooltipRect.width - gap;
+    const useLeft = right + tooltipRect.width > viewportWidth - margin && leftSide >= margin;
+    const candidateLeft = useLeft ? leftSide : right;
+    const maxLeft = Math.max(margin, viewportWidth - tooltipRect.width - margin);
+    const left = Math.min(Math.max(candidateLeft, margin), maxLeft);
+    const centeredTop = anchorRect.top + (anchorRect.height - tooltipRect.height) / 2;
+    const maxTop = Math.max(margin, viewportHeight - tooltipRect.height - margin);
+    const top = Math.min(Math.max(centeredTop, margin), maxTop);
+    return { left: Math.round(left), top: Math.round(top), placement: useLeft ? 'left' : 'right' };
+  }
   const maxLeft = Math.max(margin, viewportWidth - tooltipRect.width - margin);
   const left = Math.min(Math.max(anchorRect.right - tooltipRect.width, margin), maxLeft);
   const below = anchorRect.bottom + gap;
@@ -544,15 +557,14 @@ function tooltipPosition(anchorRect, tooltipRect, viewportWidth, viewportHeight,
 
 let activeTooltipAnchor = null;
 
-function showQuoteTooltip(anchor, status, quote) {
-  const tooltip = document.getElementById('quote-tooltip');
+function showAppTooltip(anchor, content, preferred = 'bottom') {
+  const tooltip = document.getElementById('app-tooltip');
   if (!tooltip || !anchor.isConnected) return;
-  const details = quoteStatusDetails(status, quote);
-  tooltip.querySelector('.quote-tooltip-reason').textContent = details.reason;
-  const time = tooltip.querySelector('.quote-tooltip-time');
-  time.textContent = details.updated;
-  time.hidden = !details.updated;
-  tooltip.dataset.kind = status.kind;
+  tooltip.querySelector('.app-tooltip-title').textContent = content.title;
+  const detail = tooltip.querySelector('.app-tooltip-detail');
+  detail.textContent = content.detail || '';
+  detail.hidden = !content.detail;
+  tooltip.dataset.kind = content.kind || '';
   tooltip.classList.remove('show');
   tooltip.hidden = false;
   tooltip.style.left = '0px';
@@ -562,6 +574,7 @@ function showQuoteTooltip(anchor, status, quote) {
     tooltip.getBoundingClientRect(),
     window.innerWidth,
     window.innerHeight,
+    preferred,
   );
   tooltip.style.left = `${position.left}px`;
   tooltip.style.top = `${position.top}px`;
@@ -572,12 +585,35 @@ function showQuoteTooltip(anchor, status, quote) {
   });
 }
 
-function hideQuoteTooltip() {
-  const tooltip = document.getElementById('quote-tooltip');
+function hideAppTooltip() {
+  const tooltip = document.getElementById('app-tooltip');
   activeTooltipAnchor = null;
   if (!tooltip) return;
   tooltip.classList.remove('show');
   tooltip.hidden = true;
+}
+
+function bindTooltip(anchor, content, preferred = 'bottom') {
+  const show = () => showAppTooltip(anchor, content(), preferred);
+  anchor.addEventListener('mouseenter', show);
+  anchor.addEventListener('mouseleave', hideAppTooltip);
+  anchor.addEventListener('focus', show);
+  anchor.addEventListener('blur', hideAppTooltip);
+  anchor.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    hideAppTooltip();
+    anchor.blur();
+  });
+}
+
+function bindStaticTooltips() {
+  for (const anchor of document.querySelectorAll('[data-tooltip-key]')) {
+    bindTooltip(
+      anchor,
+      () => ({ title: t(anchor.dataset.tooltipKey) }),
+      anchor.dataset.tooltipPlacement || 'bottom',
+    );
+  }
 }
 
 function isSourceUnavailable(failure) {
@@ -644,7 +680,6 @@ function panelRow(inst, selected) {
   if (selected) {
     const handle = document.createElement('span');
     handle.className = 'drag-handle';
-    handle.title = t('dragReorder');
     handle.tabIndex = 0;
     handle.setAttribute('role', 'button');
     handle.setAttribute('aria-label', `${t('reorderInstrument')}: ${displayInstName(inst)}`);
@@ -664,7 +699,6 @@ function panelRow(inst, selected) {
     const remove = document.createElement('span');
     remove.className = 'row-remove';
     remove.textContent = '×';
-    remove.title = t('removeInstrument');
     remove.tabIndex = 0;
     remove.setAttribute('role', 'button');
     remove.setAttribute('aria-label', `${t('removeInstrument')}: ${displayInstName(inst)}`);
@@ -941,7 +975,6 @@ function renderThemeGrid() {
     const btn = document.createElement('button');
     btn.className = 'theme-swatch';
     btn.dataset.themeId = theme.id;
-    btn.title = label;
     btn.style.background = theme.bg;
     btn.style.color = textColorFor(theme.bg);
 
@@ -1000,6 +1033,7 @@ function isOverScrollbar(e, el) {
 }
 
 function bindEvents() {
+  bindStaticTooltips();
   document.getElementById('btn-add-instrument').addEventListener('click', openAddDialog);
   document.getElementById('btn-add-cancel').addEventListener('click', closeAddDialog);
   document.getElementById('btn-add-confirm').addEventListener('click', submitAdd);
@@ -1101,7 +1135,7 @@ function currentView() {
 }
 
 function showView(view) {
-  hideQuoteTooltip();
+  hideAppTooltip();
   document.getElementById('view-cards').classList.toggle('hidden', view !== 'cards');
   document.getElementById('view-instruments').classList.toggle('hidden', view !== 'instruments');
   document.getElementById('view-settings').classList.toggle('hidden', view !== 'settings');

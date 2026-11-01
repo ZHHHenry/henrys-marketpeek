@@ -10,7 +10,7 @@
   <div id="shell" class="shell">
     <aside class="sidebar" data-tauri-drag-region>
       <div class="sidebar-top" data-tauri-drag-region>
-        <button id="btn-instruments" class="icon-btn" title="选择品种" data-i18n-title="selectInstruments">
+        <button id="btn-instruments" class="icon-btn" data-i18n-label="selectInstruments" data-tooltip-key="selectInstruments" data-tooltip-placement="right">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <rect x="3.5" y="3.5" width="7" height="7" rx="2"></rect>
             <rect x="13.5" y="3.5" width="7" height="7" rx="2"></rect>
@@ -20,13 +20,13 @@
         </button>
       </div>
       <div class="sidebar-bottom" data-tauri-drag-region>
-        <button id="btn-pin" class="icon-btn" title="窗口置顶" data-i18n-title="pinWindow">
+        <button id="btn-pin" class="icon-btn" data-i18n-label="pinWindow" data-tooltip-key="pinWindow" data-tooltip-placement="right">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 19V5"></path>
             <path d="M5.5 11.5 12 5l6.5 6.5"></path>
           </svg>
         </button>
-        <button id="btn-settings" class="icon-btn" title="设置" data-i18n-title="settings">
+        <button id="btn-settings" class="icon-btn" data-i18n-label="settings" data-tooltip-key="settings" data-tooltip-placement="right">
           <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
             <line x1="4" y1="7" x2="20" y2="7"></line>
             <circle cx="9.5" cy="7" r="2.1" fill="currentColor" stroke="none"></circle>
@@ -48,7 +48,7 @@
         <header class="panel-head" data-tauri-drag-region>
           <div class="panel-title">
             <h2 data-i18n="panelInstruments">选择品种</h2>
-            <button id="btn-add-instrument" class="add-btn" title="添加自选品种" data-i18n-title="addInstrument">+</button>
+            <button id="btn-add-instrument" class="add-btn" data-i18n-label="addInstrument" data-tooltip-key="addInstrument">+</button>
           </div>
           <span class="hint" data-i18n="maxHint">最多显示 4 张</span>
         </header>
@@ -98,9 +98,9 @@
       </section>
     </main>
   </div>
-  <div id="quote-tooltip" class="quote-tooltip" role="tooltip" hidden>
-    <div class="quote-tooltip-reason"></div>
-    <div class="quote-tooltip-time"></div>
+  <div id="app-tooltip" class="app-tooltip" role="tooltip" hidden>
+    <div class="app-tooltip-title"></div>
+    <div class="app-tooltip-detail"></div>
   </div>
   <div id="add-dialog" class="dialog-backdrop hidden" aria-hidden="true" inert>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="add-dialog-title">
