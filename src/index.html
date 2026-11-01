@@ -105,7 +105,8 @@
         <input id="add-name" maxlength="24" autocomplete="off" />
       </label>
       <label class="dialog-label"><span data-i18n="codeLabel">接口代码</span>
-        <input id="add-code" maxlength="24" autocomplete="off" spellcheck="false" />
+        <input id="add-code" maxlength="32" autocomplete="off" spellcheck="false" aria-describedby="add-code-hint" />
+        <small id="add-code-hint" class="dialog-hint">示例：sh000001 / hf_GC / whEURUSD</small>
       </label>
       <div class="dialog-label"><span data-i18n="sourceLabel">数据源</span>
         <div class="seg" id="seg-source">

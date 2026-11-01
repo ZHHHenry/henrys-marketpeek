@@ -48,6 +48,7 @@ const STR = {
     dialogAdd: '添加',
     dialogCancel: '取消',
     addMissing: '请填写名称和代码',
+    addInvalidCode: '代码格式不符合所选数据源',
     addDup: '该代码已在列表中存在',
     addNoQuote: '未获取到行情，请检查代码与来源',
     addOk: '已添加自选品种',
@@ -59,6 +60,9 @@ const STR = {
     quoteNoData: '暂无可用数据',
     quoteLastUpdated: '上次更新',
     reorderInstrument: '调整品种顺序',
+    codeHintTencent: '示例：sh000001 / hf_GC / whEURUSD',
+    codeHintSina: '仅支持 nf_ 期货或 int_ 国际指数，如 nf_AU0',
+    codeHintEastmoney: '使用 market.symbol 格式，如 100.KS11',
   },
   en: {
     selectInstruments: 'Select instruments',
@@ -92,6 +96,7 @@ const STR = {
     dialogAdd: 'Add',
     dialogCancel: 'Cancel',
     addMissing: 'Enter a name and code',
+    addInvalidCode: 'Code format does not match the selected source',
     addDup: 'Code already exists',
     addNoQuote: 'No quote returned — check code and source',
     addOk: 'Custom instrument added',
@@ -103,6 +108,9 @@ const STR = {
     quoteNoData: 'No quote is available',
     quoteLastUpdated: 'Last updated',
     reorderInstrument: 'Reorder instrument',
+    codeHintTencent: 'Examples: sh000001 / hf_GC / whEURUSD',
+    codeHintSina: 'Only nf_ futures or int_ global indices, e.g. nf_AU0',
+    codeHintEastmoney: 'Use market.symbol format, e.g. 100.KS11',
   },
 };
 
@@ -125,7 +133,7 @@ const CURRENCY_ZH = {
 };
 
 const SETTINGS_SCHEMA = 2;
-const DEFAULTS = { schemaVersion: SETTINGS_SCHEMA, selected: ['sse', 'gold', 'dji'], theme: 'shimo', updown: 'cn', interval: 10, lang: 'zh', custom: [], swapped: {} };
+const DEFAULTS = { schemaVersion: SETTINGS_SCHEMA, selected: ['sse', 'gold', 'dji'], theme: 'shimo', updown: 'cn', interval: 10, lang: 'zh', pinned: true, custom: [], swapped: {} };
 const STORE_KEY = 'mp-settings-v1';
 const VALID_INTERVALS = new Set([5, 10, 30]);
 const VALID_SOURCES = new Set(['tencent', 'sina', 'eastmoney']);
@@ -140,7 +148,6 @@ let quotes = new Map();
 let quoteFailures = new Map();
 let paused = false;
 let timer = null;
-let pinned = true;
 let suppressRowClickUntil = 0;
 let refreshRevision = 0;
 let completedRefreshRevision = 0;
@@ -184,6 +191,7 @@ function normalizeState(value) {
     updown: input.updown === 'intl' ? 'intl' : 'cn',
     interval: VALID_INTERVALS.has(Number(input.interval)) ? Number(input.interval) : DEFAULTS.interval,
     lang: input.lang === 'en' ? 'en' : 'zh',
+    pinned: typeof input.pinned === 'boolean' ? input.pinned : DEFAULTS.pinned,
     custom: uniqueCustom,
     swapped,
   };
@@ -241,6 +249,12 @@ async function init() {
   renderAll();
   fillVersion();
 
+  try {
+    await appWindow.setAlwaysOnTop(state.pinned);
+  } catch (e) {
+    console.warn('pin restore failed', e);
+  }
+
   invoke('set_language', { lang: state.lang }).catch((e) => console.warn('language sync failed', e));
 
   await listen('mp-hidden', () => {
@@ -287,8 +301,8 @@ function applyState() {
   document.documentElement.dataset.theme = state.theme;
   document.documentElement.lang = state.lang === 'en' ? 'en' : 'zh-CN';
   document.body.className = 'updown-' + state.updown;
-  document.getElementById('btn-pin').classList.toggle('active', pinned);
-  document.getElementById('btn-pin').setAttribute('aria-pressed', String(pinned));
+  document.getElementById('btn-pin').classList.toggle('active', state.pinned);
+  document.getElementById('btn-pin').setAttribute('aria-pressed', String(state.pinned));
 }
 
 function applyI18n() {
@@ -303,6 +317,7 @@ function applyI18n() {
 function renderAll() {
   applyState();
   applyI18n();
+  renderAddSourceState();
   renderThemeGrid();
   renderSettingsState();
   renderCards();
@@ -623,16 +638,28 @@ let addSource = 'tencent';
 function openAddDialog() {
   document.getElementById('add-name').value = '';
   document.getElementById('add-code').value = '';
-  document.getElementById('add-error').classList.add('hidden');
+  clearAddError();
   addSource = 'tencent';
-  for (const btn of document.querySelectorAll('#seg-source button')) {
-    btn.classList.toggle('on', btn.dataset.v === 'tencent');
-  }
+  renderAddSourceState();
   const dialog = document.getElementById('add-dialog');
   dialog.classList.remove('hidden');
   dialog.removeAttribute('inert');
   dialog.setAttribute('aria-hidden', 'false');
   document.getElementById('add-name').focus();
+}
+
+function renderAddSourceState() {
+  for (const btn of document.querySelectorAll('#seg-source button')) {
+    const on = btn.dataset.v === addSource;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', String(on));
+  }
+  const hintKey = {
+    tencent: 'codeHintTencent',
+    sina: 'codeHintSina',
+    eastmoney: 'codeHintEastmoney',
+  }[addSource];
+  document.getElementById('add-code-hint').textContent = t(hintKey);
 }
 
 function closeAddDialog() {
@@ -649,12 +676,22 @@ function showAddError(message) {
   el.classList.remove('hidden');
 }
 
+function clearAddError() {
+  const el = document.getElementById('add-error');
+  el.textContent = '';
+  el.classList.add('hidden');
+}
+
 async function submitAdd() {
   if (document.getElementById('add-dialog').classList.contains('hidden')) return;
   const name = document.getElementById('add-name').value.trim();
   const code = document.getElementById('add-code').value.trim();
   if (!name || !code) {
     showAddError(t('addMissing'));
+    return;
+  }
+  if (!isValidCustomCode(code, addSource)) {
+    showAddError(t('addInvalidCode'));
     return;
   }
   const dup =
@@ -893,6 +930,8 @@ function bindEvents() {
   document.getElementById('btn-add-instrument').addEventListener('click', openAddDialog);
   document.getElementById('btn-add-cancel').addEventListener('click', closeAddDialog);
   document.getElementById('btn-add-confirm').addEventListener('click', submitAdd);
+  document.getElementById('add-name').addEventListener('input', clearAddError);
+  document.getElementById('add-code').addEventListener('input', clearAddError);
   const addDialog = document.getElementById('add-dialog');
   addDialog.addEventListener('mousedown', (e) => {
     if (e.target === addDialog) closeAddDialog();
@@ -917,9 +956,8 @@ function bindEvents() {
   for (const btn of document.querySelectorAll('#seg-source button')) {
     btn.addEventListener('click', () => {
       addSource = btn.dataset.v;
-      for (const b of document.querySelectorAll('#seg-source button')) {
-        b.classList.toggle('on', b === btn);
-      }
+      clearAddError();
+      renderAddSourceState();
     });
   }
 
@@ -944,13 +982,15 @@ function bindEvents() {
     showView(currentView() === 'settings' ? 'cards' : 'settings');
   });
   document.getElementById('btn-pin').addEventListener('click', async () => {
-    pinned = !pinned;
+    const nextPinned = !state.pinned;
     try {
-      await appWindow.setAlwaysOnTop(pinned);
+      await appWindow.setAlwaysOnTop(nextPinned);
+      state.pinned = nextPinned;
+      saveState();
+      applyState();
     } catch (e) {
       console.warn('pin failed', e);
     }
-    document.getElementById('btn-pin').classList.toggle('active', pinned);
   });
   document.getElementById('btn-hide').addEventListener('click', () => invoke('hide_window'));
   document.getElementById('btn-quit').addEventListener('click', () => invoke('quit_app'));

@@ -15,14 +15,14 @@
 **[从 Releases 下载](https://github.com/ZHHHenry/henrys-marketpeek/releases)** 最新 `MarketPeek.exe`，双击即可运行 —— 无需安装 Rust 或 Node.js。
 
 - **平台**：Windows 10/11（64 位）。本应用使用 Windows 托盘、无边框圆角窗口与 `winres` 资源编译，**目前不支持 macOS / Linux**。
-- **联网**：行情来自公开接口，需保持网络连接；休市期间显示最近一笔收盘数据，断网时保留上一笔（从未取到则显示 `--`）。
-- 界面语言、主题、刷新间隔、涨跌配色、置顶与位置记忆均可在设置面板调整；关闭窗口 = 隐藏到托盘。
+- **联网**：行情来自公开接口，需保持网络连接；休市或暂时断网时保留上一笔并降低显示透明度，超过 3 分钟未更新会显示主题适配的陈旧状态圆点，更新失败显示错误状态圆点；从未取到数据时显示 `--`。
+- 界面语言、主题、刷新间隔与涨跌配色可在设置面板调整；侧栏图钉控制窗口置顶并记住选择，窗口位置自动记忆；关闭窗口 = 隐藏到托盘。
 
 ### 功能特性
 
-- 30 个可选品种：A 股指数（上证/深成/创业板/沪深300/科创50/中证500）、恒指与恒生科技、日经225 与韩国KOSPI、台湾加权、澳洲标普200、英国富时100、德国DAX30、纳指/标普/道指、沪金/沪银/沪铜主连、布伦特/WTI 原油、伦敦金/COMEX 白银、美元人民币/欧元美元/美元港币/欧元人民币/港币人民币/人民币日元
-- 2×2 卡片区最多同显 4 张；「品种」面板切换，已选品种置顶并高亮，可用行首拖拽条**拖动排序**（卡片顺序同步），超出上限有提示
-- **自选品种**：品种面板标题旁的「+」可直接添加三源（腾讯 / 新浪 / 东方财富）支持的任意接口代码，归入「自选」分组，可随时删除
+- 30 个可选品种：A 股指数（上证/深成/创业板/沪深300/科创50/中证500）、恒指与恒生科技、日经225 与韩国KOSPI、台湾加权、澳洲标普200、英国富时100、德国DAX、纳指/标普/道指、沪金/沪银/沪铜主连、布伦特/WTI 原油、伦敦金/COMEX 白银、美元人民币/欧元美元/美元港币/欧元人民币/港币人民币/人民币日元
+- 2×2 卡片区最多同显 4 张；「品种」面板切换，已选品种置顶并高亮，可用行首拖拽条**拖动排序**或聚焦拖拽条后按 ↑ / ↓ 排序（卡片顺序同步），超出上限有提示
+- **自选品种**：品种面板标题旁的「+」支持当前解析器覆盖的接口代码——腾讯标准 / `hf_` / `wh` 行情代码，新浪 `nf_` 期货或 `int_` 国际指数，东方财富 `market.symbol`；对话框会随来源显示格式示例，并在添加前探测行情
 - 卡片显示：名称 + 点位 + 涨跌额 + 涨跌幅；红涨绿跌 / 绿涨红跌可切换
 - **外汇**：卡片名旁 ⇄ 一键交换货币对方向（美元人民币 ↔ 人民币美元）；含美元 / 人民币的货币对按「美元在前、人民币在后」规范显示
 - 10 套预设主题配色；刷新间隔 5/10/30 秒可选，行情超过 180 秒未更新则自动降频至 60 秒，隐藏到托盘暂停刷新
@@ -41,7 +41,7 @@ Henry's_MarketPeek/
 ├─ CHANGELOG.md             版本变更记录
 ├─ LICENSE                  MIT 许可证
 ├─ .gitignore               Git 忽略规则
-├─ package.json             npm 脚本（dev / build / start / icon）+ Tauri CLI
+├─ package.json             npm 脚本（dev / build / test / check / audit）+ Tauri CLI
 ├─ package-lock.json        npm 依赖锁
 ├─ app-icon.png             图标源图（1024px）
 ├─ MarketPeek.exe           构建产物（npm run build 生成；不入库）
@@ -68,6 +68,8 @@ npm install
 npm run dev     # 开发模式
 npm run build   # 发布构建，postbuild 自动把 exe 剪切到项目根目录 MarketPeek.exe
 npm start       # 运行根目录已构建的 exe（需先 npm run build）
+npm run check   # 前端 + Rust 全量本地质量检查
+npm run audit:frontend  # 查询 npm 漏洞数据库（需要联网）
 ```
 
 需要 **Windows（64 位）** 与 Rust（MSVC 工具链）、Node.js；国内网络可复制 `src-tauri/.cargo/config.toml.example` 为 `src-tauri/.cargo/config.toml` 启用 rsproxy 镜像。
@@ -89,14 +91,14 @@ A tiny always-on-desktop market widget: neumorphic rounded cards that show quote
 **[Download from Releases](https://github.com/ZHHHenry/henrys-marketpeek/releases)** the latest `MarketPeek.exe` and double-click to run — no Rust or Node.js required.
 
 - **Platform**: Windows 10/11 (64-bit). The app uses the Windows tray, a frameless rounded window and `winres` resource compilation; **macOS / Linux are not supported**.
-- **Network**: quotes come from public APIs; an internet connection is required. During market closures the latest close is shown; when offline the last data is kept (or `--` if nothing has been fetched yet).
-- Language, theme, refresh interval, up/down colors, always-on-top and position memory are adjustable in Settings; closing the window hides it to the tray.
+- **Network**: quotes come from public APIs; an internet connection is required. During market closures or temporary outages, the last quote is retained with reduced opacity. A theme-aware stale dot appears after 3 minutes without an update, while an update failure gets an error dot; `--` is shown if no quote has ever been fetched.
+- Language, theme, refresh interval and up/down colors are adjustable in Settings. The sidebar pin controls always-on-top and remembers the choice; window position is remembered automatically. Closing the window hides it to the tray.
 
 ### Features
 
-- 30 instruments: Chinese A-share indices (SSE Composite, SZSE Component, ChiNext, CSI 300, STAR 50, CSI 500), Hang Seng and Hang Seng Tech, Nikkei 225 and KOSPI, Taiwan Weighted, S&P/ASX 200, FTSE 100, DAX 30, Nasdaq Composite, S&P 500, Dow Jones, SHFE Gold / Silver / Copper, Brent and WTI Crude, London Gold Spot and COMEX Silver, USD/CNY plus EUR/USD, USD/HKD, EUR/CNY, HKD/CNY and CNY/JPY
-- 2×2 card grid, up to 4 cards shown; instrument picker panel with selected items pinned on top and **drag-to-reorder** (grip handle; card order follows), over-limit notice
-- **Custom instruments**: add any code supported by the three sources (Tencent / Sina / Eastmoney) via the "+" in the picker header; grouped under "Custom" and removable anytime
+- 30 instruments: Chinese A-share indices (SSE Composite, SZSE Component, ChiNext, CSI 300, STAR 50, CSI 500), Hang Seng and Hang Seng Tech, Nikkei 225 and KOSPI, Taiwan Weighted, S&P/ASX 200, FTSE 100, DAX, Nasdaq Composite, S&P 500, Dow Jones, SHFE Gold / Silver / Copper, Brent and WTI Crude, London Gold Spot and COMEX Silver, USD/CNY plus EUR/USD, USD/HKD, EUR/CNY, HKD/CNY and CNY/JPY
+- 2×2 card grid, up to 4 cards shown; instrument picker panel with selected items pinned on top and **drag-to-reorder**, plus keyboard reordering by focusing a grip and pressing ↑ / ↓; over-limit notice
+- **Custom instruments**: the "+" in the picker header accepts formats covered by the current parsers—Tencent standard / `hf_` / `wh` quote codes, Sina `nf_` futures or `int_` global indices, and Eastmoney `market.symbol`; the dialog shows a source-specific example and probes the quote before adding it
 - Each card shows: name + price + change amount + change percent; CN (red-up) / international (green-up) color schemes
 - **FX**: swap the base/quote direction with the ⇄ button on FX cards; USD / CNY pairs are displayed in a normalized order (USD first, CNY last)
 - 10 preset themes; refresh interval 5/10/30 s, auto slow-down to 60 s when quotes go stale (>180 s), paused while hidden in tray
@@ -115,7 +117,7 @@ Henry's_MarketPeek/
 ├─ CHANGELOG.md             version history
 ├─ LICENSE                  MIT license
 ├─ .gitignore               git ignore rules
-├─ package.json             npm scripts (dev / build / start / icon) + Tauri CLI
+├─ package.json             npm scripts (dev / build / test / check / audit) + Tauri CLI
 ├─ package-lock.json        npm lockfile
 ├─ app-icon.png             icon source (1024px)
 ├─ MarketPeek.exe           build artifact (created by npm run build; not committed)
@@ -142,6 +144,8 @@ npm install
 npm run dev     # development
 npm run build   # release build; postbuild moves the exe to MarketPeek.exe in the project root
 npm start       # run the already-built MarketPeek.exe in the project root (after npm run build)
+npm run check   # full local frontend + Rust quality checks
+npm run audit:frontend  # query the npm advisory database (network required)
 ```
 
 Requires **Windows (64-bit)**, Rust (MSVC toolchain) and Node.js. On slow networks, copy `src-tauri/.cargo/config.toml.example` to `src-tauri/.cargo/config.toml` to enable the rsproxy mirror.

@@ -577,6 +577,15 @@ body.row-dragging * { cursor: grabbing !important; }
   box-shadow: inset 2px 2px 5px var(--shd), inset -2px -2px 5px var(--shl);
 }
 
+.dialog-hint {
+  display: block;
+  min-height: 14px;
+  margin-top: 4px;
+  color: var(--tx2);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
 .dialog-error {
   font-size: 11px;
   color: #c95f5f;

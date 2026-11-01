@@ -45,6 +45,7 @@ test('normalizeState migrates malformed persisted settings to safe values', () =
     updown: 'unexpected',
     interval: -1,
     lang: 'fr',
+    pinned: 'yes',
     custom: [
       { name: 'Euro', code: 'whEURUSD', source: 'tencent', decimals: 99 },
       { name: 'Injected', code: 'sh000001&x=1', source: 'tencent' },
@@ -57,6 +58,8 @@ test('normalizeState migrates malformed persisted settings to safe values', () =
   assert.equal(state.updown, 'cn');
   assert.equal(state.interval, 10);
   assert.equal(state.lang, 'zh');
+  assert.equal(state.pinned, true);
+  assert.equal(normalizeState({ pinned: false }).pinned, false);
   assert.deepEqual(state.custom, [{
     id: 'c_whEURUSD',
     name: 'Euro',
@@ -158,4 +161,12 @@ test('vendored winres patch continues to preserve apostrophes in RC paths', () =
     'utf8',
   );
   assert.ok(helper.includes(String.raw`'\'' => escaped.push('\''),`));
+});
+
+test('the DAX instrument uses the current official name', () => {
+  const quotes = fs.readFileSync(path.join(projectRoot, 'src-tauri', 'src', 'quotes.rs'), 'utf8');
+  const dax = quotes.match(/Instrument \{\s*id: "dax",[\s\S]*?\n\s*\},/)?.[0] || '';
+  assert.match(dax, /name: "德国DAX"/);
+  assert.match(dax, /name_en: "DAX"/);
+  assert.doesNotMatch(dax, /DAX\s*30/);
 });

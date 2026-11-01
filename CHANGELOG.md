@@ -7,6 +7,28 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
 - 功能说明：[README.md](README.md)（中英双语）
 - 发布页：[Releases](https://github.com/ZHHHenry/henrys-marketpeek/releases)（每版附便携 exe）
 
+## [Unreleased]
+
+### 新增
+
+- 行情卡片增加主题适配的陈旧 / 更新失败状态提示；陈旧数据继续保留并轻微降低透明度
+- 品种、自选对话框与设置项补齐键盘操作、焦点管理和辅助功能语义
+- 自选品种对话框按数据源显示代码格式示例，并在请求前校验当前解析器支持的格式
+- 新增前端核心逻辑测试、版本 / 主题 / 翻译同步检查及 GitHub Actions 质量门槛
+
+### 修复
+
+- 行情请求改用 HTTPS，并增加连接 / 总超时、重定向与响应体限制；多数据源并发请求且独立降级
+- 修复损坏设置数据、重复刷新、未来时间戳、已取消选择行情残留及离屏窗口位置恢复等边界情况
+- 自选品种输入在前后端执行一致的数量、字符与来源格式校验，避免无效代码进入请求
+- 应用退出前刷新保存最新窗口位置；位置文件写入失败会保留诊断信息
+
+### 改进
+
+- 窗口置顶选择在重启后继续生效
+- “德国DAX30 / DAX 30”统一为官方名称“德国DAX / DAX”
+- 收紧 Tauri CSP，并将本地格式、Clippy、前端 / Rust 测试与依赖审计接入统一检查流程
+
 ## [v0.1.2] - 2026-10-06
 
 ### 新增
@@ -15,7 +37,7 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
   - 指数 ×5：中证500、台湾加权、澳大利亚标普200、英国富时100、德国DAX30
   - 商品 ×4：WTI原油、COMEX白银、沪银主连、沪铜主连
   - 外汇 ×5：欧元美元、美元港币、欧元人民币、港币人民币、人民币日元
-- **自选品种**：品种面板「+」可添加任意三源（腾讯 / 新浪 / 东方财富）支持的接口代码，归入「自选」分组；添加前自动探测行情，支持删除
+- **自选品种**：品种面板「+」可添加当前解析器覆盖的腾讯标准 / `hf_` / `wh` 行情代码、新浪 `nf_` / `int_` 代码及东方财富 `market.symbol` 代码，归入「自选」分组；添加前自动探测行情，支持删除
 - **外汇交换**：卡片名旁 ⇄ 一键交换货币对方向（美元人民币 ↔ 人民币美元），价格 / 涨跌按倒数精确换算，偏好持久化
 
 ### 修复
@@ -34,7 +56,7 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
 
 - CHANGELOG 遵循 Keep a Changelog / SemVer，新增版本 compare 链接
 - PROGRESS.md 收敛为待办与路线，发版清单并入 AGENTS.md
-- `quotes.rs` 新增解析层单元测试（14 例）与模块说明注释
+- `quotes.rs` 解析层单元测试增至 22 例（本版新增 14 例），并补充模块说明注释
 
 ## [v0.1.1] - 2026-09-27
 
@@ -71,10 +93,12 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
 
 ## English Summary
 
+- **Unreleased** — Reliability hardening for quote requests, persisted state, polling and window restoration; theme-aware stale/error indicators; keyboard and accessibility support; source-specific custom-code guidance; persisted always-on-top preference; official DAX naming; expanded tests and CI dependency audits.
 - **v0.1.2** — 30 instruments (14 new); custom instruments (+ button, three sources); FX swap button and normalized USD-first / CNY-last display; FX parsing route fix; quote-source disclosure completed (Tencent / Sina / Eastmoney); README "Usage" section; docs cleanup (Keep a Changelog, PROGRESS trimmed to todo & roadmap); 22 parser unit tests and module docs.
 - **v0.1.1** — Drag-to-reorder instruments with a grip handle (vertical follow effect, rows shifting to preview the drop); fine-grained window drag regions; removed the dark underlay behind the rounded window; build rules (move exe, relative paths, README sync) documented in AGENTS.md.
 - **v0.1.0** — Initial release: 16 instruments, 2×2 cards, 10 themes, CN/EN UI, tray, position memory, single instance.
 
+[Unreleased]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.2...HEAD
 [v0.1.2]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.1...v0.1.2
 [v0.1.1]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/ZHHHenry/henrys-marketpeek/releases/tag/v0.1.0

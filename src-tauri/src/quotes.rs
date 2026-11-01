@@ -222,9 +222,9 @@ pub const POOL: &[Instrument] = &[
     },
     Instrument {
         id: "dax",
-        name: "德国DAX30",
-        name_en: "DAX 30",
-        short: "DAX30",
+        name: "德国DAX",
+        name_en: "DAX",
+        short: "DAX",
         short_en: "DAX",
         category: "指数",
         category_en: "Indices",
