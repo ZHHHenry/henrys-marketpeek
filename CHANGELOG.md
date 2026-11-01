@@ -9,12 +9,13 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
 
 ## [Unreleased]
 
+## [v0.1.3] - 2026-11-01
+
 ### 新增
 
 - 统一应用内提示层的主题样式、动效与边缘避让：行情状态点显示原因与上次更新时间，汇率交换、侧栏按钮和添加自选品种使用同款提示；拖动排序与主题颜色块不再弹出提示
 - 品种、自选对话框与设置项补齐键盘操作、焦点管理和辅助功能语义
 - 自选品种对话框按数据源显示代码格式示例，并在请求前校验当前解析器支持的格式
-- 新增前端核心逻辑测试、版本 / 主题 / 翻译同步检查及 GitHub Actions 质量门槛
 
 ### 修复
 
@@ -27,7 +28,8 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
 
 - 窗口置顶选择在重启后继续生效
 - “德国DAX30 / DAX 30”统一为官方名称“德国DAX / DAX”
-- 收紧 Tauri CSP，并将本地格式、Clippy、前端 / Rust 测试与依赖审计接入统一检查流程
+- 收紧 Tauri CSP，限制页面资源与 IPC 连接范围
+- 禁用非编辑区域的 WebView 默认右键菜单；自选品种文本输入框保留复制、粘贴等标准编辑菜单
 
 ## [v0.1.2] - 2026-10-06
 
@@ -93,12 +95,13 @@ Henry's MarketPeek 版本变更记录。**最新版本在最上方。**
 
 ## English Summary
 
-- **Unreleased** — Reliability hardening for quote requests, persisted state, polling and window restoration; theme-aware stale/error indicators; keyboard and accessibility support; source-specific custom-code guidance; persisted always-on-top preference; official DAX naming; expanded tests and CI dependency audits.
+- **v0.1.3** — Hardened concurrent quote requests, persisted state, polling and window restoration; unified theme-aware status/control tooltips; keyboard and accessibility support; source-specific custom-code guidance; persisted always-on-top preference; official DAX naming; tighter CSP; non-editable WebView context menus disabled while text-field editing menus remain available.
 - **v0.1.2** — 30 instruments (14 new); custom instruments (+ button, three sources); FX swap button and normalized USD-first / CNY-last display; FX parsing route fix; quote-source disclosure completed (Tencent / Sina / Eastmoney); README "Usage" section; docs cleanup (Keep a Changelog, PROGRESS trimmed to todo & roadmap); 22 parser unit tests and module docs.
 - **v0.1.1** — Drag-to-reorder instruments with a grip handle (vertical follow effect, rows shifting to preview the drop); fine-grained window drag regions; removed the dark underlay behind the rounded window; build rules (move exe, relative paths, README sync) documented in AGENTS.md.
 - **v0.1.0** — Initial release: 16 instruments, 2×2 cards, 10 themes, CN/EN UI, tray, position memory, single instance.
 
-[Unreleased]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.3...HEAD
+[v0.1.3]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.2...v0.1.3
 [v0.1.2]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.1...v0.1.2
 [v0.1.1]: https://github.com/ZHHHenry/henrys-marketpeek/compare/v0.1.0...v0.1.1
 [v0.1.0]: https://github.com/ZHHHenry/henrys-marketpeek/releases/tag/v0.1.0

@@ -1032,8 +1032,15 @@ function isOverScrollbar(e, el) {
   return e.clientX >= el.getBoundingClientRect().right - 8;
 }
 
+function isEditableContextTarget(target) {
+  return Boolean(target?.closest?.('input, textarea, [contenteditable="true"]'));
+}
+
 function bindEvents() {
   bindStaticTooltips();
+  document.addEventListener('contextmenu', (event) => {
+    if (!isEditableContextTarget(event.target)) event.preventDefault();
+  });
   document.getElementById('btn-add-instrument').addEventListener('click', openAddDialog);
   document.getElementById('btn-add-cancel').addEventListener('click', closeAddDialog);
   document.getElementById('btn-add-confirm').addEventListener('click', submitAdd);
@@ -1262,6 +1269,7 @@ if (window.__MARKETPEEK_TEST__) {
     STR,
     THEMES,
     invertQuote,
+    isEditableContextTarget,
     isQuoteFresh,
     isValidCustomCode,
     nextRefreshDelayMs,

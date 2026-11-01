@@ -26,6 +26,7 @@ const {
   STR,
   THEMES,
   invertQuote,
+  isEditableContextTarget,
   isQuoteFresh,
   isValidCustomCode,
   nextRefreshDelayMs,
@@ -79,6 +80,12 @@ test('custom code validation follows the parsers supported by each source', () =
   assert.equal(isValidCustomCode('100.KS11', 'eastmoney'), true);
   assert.equal(isValidCustomCode('KS11', 'eastmoney'), false);
   assert.equal(normalizeCustomInstrument({ name: '', code: 'whEURUSD', source: 'tencent' }), null);
+});
+
+test('context menus remain available only for editable controls', () => {
+  assert.equal(isEditableContextTarget({ closest: () => ({ tagName: 'INPUT' }) }), true);
+  assert.equal(isEditableContextTarget({ closest: () => null }), false);
+  assert.equal(isEditableContextTarget(null), false);
 });
 
 test('freshness uses source time when present and receipt time as a safe fallback', () => {
@@ -212,15 +219,21 @@ test('the custom instrument dialog is excluded from accessibility until opened',
   assert.match(main, /dialog\.setAttribute\('inert', ''\)/);
 });
 
-test('release version remains synchronized across all three manifests', () => {
+test('release version remains synchronized across manifests and lockfiles', () => {
   const packageVersion = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')).version;
+  const packageLock = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package-lock.json'), 'utf8'));
   const tauriVersion = JSON.parse(
     fs.readFileSync(path.join(projectRoot, 'src-tauri', 'tauri.conf.json'), 'utf8'),
   ).version;
   const cargo = fs.readFileSync(path.join(projectRoot, 'src-tauri', 'Cargo.toml'), 'utf8');
   const cargoVersion = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
+  const cargoLock = fs.readFileSync(path.join(projectRoot, 'src-tauri', 'Cargo.lock'), 'utf8');
+  const cargoLockVersion = cargoLock.match(/name = "marketpeek"\s+version = "([^"]+)"/)?.[1];
+  assert.equal(packageVersion, packageLock.version);
+  assert.equal(packageVersion, packageLock.packages[''].version);
   assert.equal(packageVersion, tauriVersion);
   assert.equal(packageVersion, cargoVersion);
+  assert.equal(packageVersion, cargoLockVersion);
 });
 
 test('vendored winres patch continues to preserve apostrophes in RC paths', () => {

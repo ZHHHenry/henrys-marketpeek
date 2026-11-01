@@ -48,7 +48,7 @@
 
 ### 4. 版本号同步清单
 
-- 发版必须同步三处 version：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`；
+- 发版必须同步 `package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml` 与 `src-tauri/Cargo.lock` 中的应用 version；
 - 界面版本号通过 `app.getVersion()` 动态读取，无需硬编码；发版另需 git tag + GitHub Release（附根目录 exe）。
 
 ### 5. 发版文档同步（README / CHANGELOG）
@@ -81,7 +81,7 @@ cd src-tauri && cargo test   # 解析层单元测试
 
 ## 发版清单（每版）
 
-1. 三处 version 同步：`package.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`；
+1. 应用 version 同步：`package.json`、`package-lock.json`、`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`；
 2. 有功能变化时同步更新 `README.md`（中英两个区块）与 `CHANGELOG.md`（条目 + 日期 + compare 链接）；
 3. `npm run build` 并冒烟根目录 exe（托盘、置顶、隐藏 / 恢复）；
 4. 提交推送 → 打 tag → `gh release create`（附根目录 exe）。
@@ -99,7 +99,7 @@ cd src-tauri && cargo test   # 解析层单元测试
 | 方向 | 约定 |
 |---|---|
 | 双语 | 前端 STR、品种名称表、托盘菜单全部 zh / en 同改 |
-| 版本 | package.json / tauri.conf.json / Cargo.toml 三处同步 + tag + Release |
+| 版本 | package.json / package-lock.json / tauri.conf.json / Cargo.toml / Cargo.lock 同步 + tag + Release |
 | 测试 | 解析层有单测（`cargo test`）；解析器改动 → 补用例 + dev 实测；Rust 改动 → `cargo check` |
 | 数据 | 仅用公开行情接口；来源与免责声明保留；失败降级 `--` |
 | 发布 | `npm run build` 自动把 exe **剪切**到根目录（源位置不留副本、不入库）；发版同步 README；Release 附 exe |
