@@ -15,7 +15,7 @@
 **[从 Releases 下载](https://github.com/ZHHHenry/henrys-marketpeek/releases)** 最新 `MarketPeek.exe`，双击即可运行 —— 无需安装 Rust 或 Node.js。
 
 - **平台**：Windows 10/11（64 位）。本应用使用 Windows 托盘、无边框圆角窗口与 `winres` 资源编译，**目前不支持 macOS / Linux**。
-- **联网**：行情来自公开接口，需保持网络连接；休市或暂时断网时保留上一笔并降低显示透明度，超过 3 分钟未更新会显示主题适配的陈旧状态圆点，更新失败显示错误状态圆点；从未取到数据时显示 `--`。
+- **联网**：行情来自公开接口，需保持网络连接；休市或暂时断网时保留上一笔并降低显示透明度，超过 3 分钟未更新会显示主题适配的陈旧状态圆点，更新失败显示错误状态圆点；悬停或键盘聚焦状态点可查看原因与上次更新时间，从未取到数据时显示 `--`。
 - 界面语言、主题、刷新间隔与涨跌配色可在设置面板调整；侧栏图钉控制窗口置顶并记住选择，窗口位置自动记忆；关闭窗口 = 隐藏到托盘。
 
 ### 功能特性
@@ -91,7 +91,7 @@ A tiny always-on-desktop market widget: neumorphic rounded cards that show quote
 **[Download from Releases](https://github.com/ZHHHenry/henrys-marketpeek/releases)** the latest `MarketPeek.exe` and double-click to run — no Rust or Node.js required.
 
 - **Platform**: Windows 10/11 (64-bit). The app uses the Windows tray, a frameless rounded window and `winres` resource compilation; **macOS / Linux are not supported**.
-- **Network**: quotes come from public APIs; an internet connection is required. During market closures or temporary outages, the last quote is retained with reduced opacity. A theme-aware stale dot appears after 3 minutes without an update, while an update failure gets an error dot; `--` is shown if no quote has ever been fetched.
+- **Network**: quotes come from public APIs; an internet connection is required. During market closures or temporary outages, the last quote is retained with reduced opacity. A theme-aware stale dot appears after 3 minutes without an update, while an update failure gets an error dot. Hover or keyboard-focus the status dot to see the reason and last update time; `--` is shown if no quote has ever been fetched.
 - Language, theme, refresh interval and up/down colors are adjustable in Settings. The sidebar pin controls always-on-top and remembers the choice; window position is remembered automatically. Closing the window hides it to the tray.
 
 ### Features

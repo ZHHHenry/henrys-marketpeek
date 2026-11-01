@@ -32,8 +32,10 @@ const {
   normalizeCustomInstrument,
   normalizeState,
   quoteStatus,
+  quoteStatusDetails,
   quoteStatusTitle,
   quoteTimestamp,
+  tooltipPosition,
 } = window.__MARKETPEEK_TEST_API;
 
 const projectRoot = path.resolve(__dirname, '..');
@@ -113,6 +115,40 @@ test('card status prioritizes failures and keeps technical details out of the to
   const title = quoteStatusTitle(status, quote);
   assert.match(title, /数据源暂时不可用/);
   assert.doesNotMatch(title, /secret detail/);
+  assert.deepEqual(quoteStatusDetails(status, null), {
+    reason: '数据源暂时不可用',
+    updated: '暂无可用数据',
+  });
+});
+
+test('status tooltip stays inside the viewport and flips above near the bottom edge', () => {
+  assert.deepEqual(
+    tooltipPosition(
+      { top: 20, right: 295, bottom: 35 },
+      { width: 120, height: 46 },
+      300,
+      200,
+    ),
+    { left: 170, top: 42, placement: 'bottom' },
+  );
+  assert.deepEqual(
+    tooltipPosition(
+      { top: 170, right: 18, bottom: 185 },
+      { width: 120, height: 46 },
+      300,
+      200,
+    ),
+    { left: 10, top: 117, placement: 'top' },
+  );
+});
+
+test('status details are exposed only from the status point, not the whole card', () => {
+  const html = fs.readFileSync(path.join(projectRoot, 'src', 'index.html'), 'utf8');
+  const main = fs.readFileSync(path.join(projectRoot, 'src', 'main.js'), 'utf8');
+  assert.match(html, /id="quote-tooltip"[^>]*role="tooltip"[^>]*hidden/);
+  assert.doesNotMatch(main, /card\.title\s*=/);
+  assert.match(main, /statusDot\.addEventListener\('mouseenter'/);
+  assert.match(main, /statusDot\.addEventListener\('focus'/);
 });
 
 test('FX inversion preserves the mathematically inverted change direction', () => {

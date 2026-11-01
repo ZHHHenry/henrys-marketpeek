@@ -167,14 +167,82 @@ body {
 
 .card-status {
   flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin: -4px -4px -4px 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  cursor: help;
+}
+
+.card-status::before {
+  content: '';
   width: 7px;
   height: 7px;
   border-radius: 50%;
+  background: currentColor;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--bg) 72%, transparent);
 }
 
-.card-status.stale { background: var(--status-stale); }
-.card-status.error { background: var(--status-error); }
+.card-status.stale { color: var(--status-stale); }
+.card-status.error { color: var(--status-error); }
+
+.card-status:focus-visible {
+  outline: 1.5px solid color-mix(in srgb, currentColor 72%, var(--tx));
+  outline-offset: 1px;
+}
+
+.quote-tooltip {
+  position: fixed;
+  z-index: 20;
+  width: max-content;
+  max-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--tx2) 18%, transparent);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--tx);
+  box-shadow: 3px 3px 9px var(--shd), -3px -3px 9px var(--shl);
+  font-size: 10.5px;
+  line-height: 1.4;
+  letter-spacing: 0.1px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+
+.quote-tooltip[hidden] { display: none; }
+
+.quote-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.quote-tooltip[data-placement="top"] {
+  transform: translateY(2px);
+}
+
+.quote-tooltip[data-placement="top"].show { transform: translateY(0); }
+
+.quote-tooltip-reason {
+  font-weight: 650;
+  color: var(--tx);
+}
+
+.quote-tooltip[data-kind="stale"] .quote-tooltip-reason { color: var(--status-stale); }
+.quote-tooltip[data-kind="error"] .quote-tooltip-reason { color: var(--status-error); }
+
+.quote-tooltip-time {
+  margin-top: 2px;
+  color: var(--tx2);
+  font-variant-numeric: tabular-nums;
+}
 
 .card.data-stale .price,
 .card.data-stale .chg {

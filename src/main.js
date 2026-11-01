@@ -399,6 +399,10 @@ function toggleFxSwap(id) {
 
 function renderCards() {
   const grid = document.getElementById('card-grid');
+  const focusedStatusId = document.activeElement?.matches?.('.card-status')
+    ? document.activeElement.dataset.quoteId
+    : null;
+  hideQuoteTooltip();
   grid.innerHTML = '';
   for (const id of state.selected) {
     const inst = byId.get(id);
@@ -411,10 +415,6 @@ function renderCards() {
     card.className = 'card';
     if (status.kind === 'stale') card.classList.add('data-stale');
     if (status.kind === 'error') card.classList.add('data-error');
-    if (status.kind !== 'fresh') {
-      card.title = quoteStatusTitle(status, raw);
-    }
-
     const name = document.createElement('div');
     name.className = 'name';
     const nameText = document.createElement('span');
@@ -433,10 +433,21 @@ function renderCards() {
       name.append(swapBtn);
     }
     if (status.kind !== 'fresh') {
-      const statusDot = document.createElement('span');
+      const statusDot = document.createElement('button');
+      statusDot.type = 'button';
       statusDot.className = `card-status ${status.kind}`;
-      statusDot.setAttribute('role', 'img');
+      statusDot.dataset.quoteId = id;
       statusDot.setAttribute('aria-label', quoteStatusTitle(status, raw));
+      statusDot.addEventListener('mouseenter', () => showQuoteTooltip(statusDot, status, raw));
+      statusDot.addEventListener('mouseleave', hideQuoteTooltip);
+      statusDot.addEventListener('focus', () => showQuoteTooltip(statusDot, status, raw));
+      statusDot.addEventListener('blur', hideQuoteTooltip);
+      statusDot.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          hideQuoteTooltip();
+          statusDot.blur();
+        }
+      });
       name.append(statusDot);
     }
 
@@ -475,6 +486,12 @@ function renderCards() {
     placeholder.addEventListener('click', () => showView('instruments'));
     grid.append(placeholder);
   }
+
+  if (focusedStatusId) {
+    const nextStatus = [...grid.querySelectorAll('.card-status')]
+      .find((element) => element.dataset.quoteId === focusedStatusId);
+    nextStatus?.focus({ preventScroll: true });
+  }
 }
 
 function quoteStatus(id, quote, now = Date.now(), failures = quoteFailures) {
@@ -484,13 +501,14 @@ function quoteStatus(id, quote, now = Date.now(), failures = quoteFailures) {
   return { kind: 'fresh', failure: null };
 }
 
-function quoteStatusTitle(status, quote) {
-  const parts = [];
+function quoteStatusDetails(status, quote) {
+  let reason = '';
   if (status.kind === 'error') {
-    parts.push(isSourceUnavailable(status.failure) ? t('quoteSourceUnavailable') : t('quoteInvalidResponse'));
+    reason = isSourceUnavailable(status.failure) ? t('quoteSourceUnavailable') : t('quoteInvalidResponse');
   } else if (status.kind === 'stale') {
-    parts.push(t('quoteStale'));
+    reason = t('quoteStale');
   }
+  let updated = '';
   const timestamp = quoteTimestamp(quote);
   if (timestamp) {
     const locale = state.lang === 'en' ? 'en-US' : 'zh-CN';
@@ -500,11 +518,66 @@ function quoteStatusTitle(status, quote) {
       hour: '2-digit',
       minute: '2-digit',
     });
-    parts.push(`${t('quoteLastUpdated')} ${formatted}`);
+    updated = `${t('quoteLastUpdated')} ${formatted}`;
   } else if (status.kind === 'error') {
-    parts.push(t('quoteNoData'));
+    updated = t('quoteNoData');
   }
-  return parts.join(' · ');
+  return { reason, updated };
+}
+
+function quoteStatusTitle(status, quote) {
+  const details = quoteStatusDetails(status, quote);
+  return [details.reason, details.updated].filter(Boolean).join(' · ');
+}
+
+function tooltipPosition(anchorRect, tooltipRect, viewportWidth, viewportHeight, margin = 10, gap = 7) {
+  const maxLeft = Math.max(margin, viewportWidth - tooltipRect.width - margin);
+  const left = Math.min(Math.max(anchorRect.right - tooltipRect.width, margin), maxLeft);
+  const below = anchorRect.bottom + gap;
+  const above = anchorRect.top - tooltipRect.height - gap;
+  const useAbove = below + tooltipRect.height > viewportHeight - margin && above >= margin;
+  const candidateTop = useAbove ? above : below;
+  const maxTop = Math.max(margin, viewportHeight - tooltipRect.height - margin);
+  const top = Math.min(Math.max(candidateTop, margin), maxTop);
+  return { left: Math.round(left), top: Math.round(top), placement: useAbove ? 'top' : 'bottom' };
+}
+
+let activeTooltipAnchor = null;
+
+function showQuoteTooltip(anchor, status, quote) {
+  const tooltip = document.getElementById('quote-tooltip');
+  if (!tooltip || !anchor.isConnected) return;
+  const details = quoteStatusDetails(status, quote);
+  tooltip.querySelector('.quote-tooltip-reason').textContent = details.reason;
+  const time = tooltip.querySelector('.quote-tooltip-time');
+  time.textContent = details.updated;
+  time.hidden = !details.updated;
+  tooltip.dataset.kind = status.kind;
+  tooltip.classList.remove('show');
+  tooltip.hidden = false;
+  tooltip.style.left = '0px';
+  tooltip.style.top = '0px';
+  const position = tooltipPosition(
+    anchor.getBoundingClientRect(),
+    tooltip.getBoundingClientRect(),
+    window.innerWidth,
+    window.innerHeight,
+  );
+  tooltip.style.left = `${position.left}px`;
+  tooltip.style.top = `${position.top}px`;
+  tooltip.dataset.placement = position.placement;
+  activeTooltipAnchor = anchor;
+  requestAnimationFrame(() => {
+    if (activeTooltipAnchor === anchor) tooltip.classList.add('show');
+  });
+}
+
+function hideQuoteTooltip() {
+  const tooltip = document.getElementById('quote-tooltip');
+  activeTooltipAnchor = null;
+  if (!tooltip) return;
+  tooltip.classList.remove('show');
+  tooltip.hidden = true;
 }
 
 function isSourceUnavailable(failure) {
@@ -1028,6 +1101,7 @@ function currentView() {
 }
 
 function showView(view) {
+  hideQuoteTooltip();
   document.getElementById('view-cards').classList.toggle('hidden', view !== 'cards');
   document.getElementById('view-instruments').classList.toggle('hidden', view !== 'instruments');
   document.getElementById('view-settings').classList.toggle('hidden', view !== 'settings');
@@ -1160,8 +1234,10 @@ if (window.__MARKETPEEK_TEST__) {
     normalizeCustomInstrument,
     normalizeState,
     quoteStatus,
+    quoteStatusDetails,
     quoteStatusTitle,
     quoteTimestamp,
+    tooltipPosition,
   };
 }
 
